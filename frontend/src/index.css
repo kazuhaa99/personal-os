@@ -2,51 +2,179 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens (RGB triplets so Tailwind can apply alpha). Dark-first by design. */
+/*
+ * Personal OS design system — "Premium Native" structure with Liquid Glass materials.
+ * Tokens are RGB triplets so Tailwind can apply alpha. Light is the base; dark overrides.
+ *
+ * Material tiers (used deliberately, never everywhere):
+ *   .mat-chrome  sidebar / toolbar / docks — strongest blur, shows the wallpaper through
+ *   .mat-glass   hero surfaces — translucent with specular rim (+ optional .sheen pointer light)
+ *   .mat-panel   content panels — near-opaque so numbers, tables and forms stay crisp
+ *   .mat-popover menus, palettes, dialogs — opaque enough for text, still frosted
+ */
 :root {
-  color-scheme: dark;
-  --bg: 12 12 14;
-  --surface: 21 21 23;
-  --raised: 28 28 31;
-  --line: 255 255 255;        /* used at low alpha for hairlines */
-  --ink: 236 236 240;
-  --ink-2: 160 160 170;
-  --ink-3: 110 110 120;
-  --accent: 124 156 255;
-  --accent-ink: 12 12 14;
-  --good: 12 163 12;
-  --warn: 250 178 25;
-  --bad: 208 59 59;
+  color-scheme: light;
+  --bg: 228 230 236;
+  --surface: 255 255 255;
+  --raised: 255 255 255;
+  --line: 0 0 0;
+  --fill: 0 0 0;
+  --chrome: 246 246 249;
+  --ink: 29 29 31;
+  --ink-2: 66 66 72;
+  --ink-3: 104 104 112;
+  --accent: 10 112 240;
+  --accent-ink: 255 255 255;
+  --good: 22 128 56;
+  --warn: 170 98 0;
+  --bad: 205 25 40;
+  --demo: 124 92 214;
 
-  /* chart roles (validated categorical dark steps; see dataviz palette) */
+  --panel-alpha: 0.86;
+  --chrome-alpha: 0.6;
+  --glass-top: rgb(255 255 255 / 0.72);
+  --glass-bottom: rgb(255 255 255 / 0.5);
+  --glass-rim: rgb(255 255 255 / 0.9);
+  --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(30 40 70 / 0.22);
+  --window-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.18), 0 30px 80px -20px rgb(20 30 60 / 0.35);
+  --sheen: rgb(255 255 255 / 0.55);
+  --glass-spec: rgb(255 255 255 / 0.35);
+
+  /* chart roles (validated categorical light steps; see dataviz palette) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-neg: #d03b3b;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #6f6d68;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: 10 10 14;
+  --surface: 30 30 35;
+  --raised: 40 40 46;
+  --line: 255 255 255;
+  --fill: 255 255 255;
+  --chrome: 36 36 42;
+  --ink: 245 245 247;
+  --ink-2: 205 205 212;
+  --ink-3: 156 156 166;
+  --accent: 64 156 255;
+  --accent-ink: 255 255 255;
+  --good: 64 210 100;
+  --warn: 255 184 72;
+  --bad: 255 110 100;
+  --demo: 180 160 255;
+
+  --panel-alpha: 0.72;
+  --chrome-alpha: 0.55;
+  --glass-top: rgb(255 255 255 / 0.12);
+  --glass-bottom: rgb(255 255 255 / 0.04);
+  --glass-rim: rgb(255 255 255 / 0.22);
+  --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.2), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --window-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 30px 90px -20px rgb(0 0 0 / 0.75);
+  --sheen: rgb(255 255 255 / 0.12);
+  --glass-spec: rgb(255 255 255 / 0.08);
+
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
+  --series-neg: #e66767;
   --chart-grid: #2c2c2a;
-  --chart-axis: #898781;
+  --chart-axis: #a3a19a;
 }
 
 html, body, #root { height: 100%; }
 body {
-  @apply bg-bg text-ink font-sans antialiased;
+  @apply text-ink font-sans antialiased;
   background-color: rgb(var(--bg));
   font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.006em;
 }
 
 .tnum { font-variant-numeric: tabular-nums; }
-.hairline { border-color: rgb(var(--line) / 0.08); }
+.hairline { border-color: rgb(var(--line) / 0.09); }
 
-*:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 6px; }
+*:focus-visible { outline: 3px solid rgb(var(--accent) / 0.5); outline-offset: 1px; border-radius: 6px; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.08); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb { background: rgb(var(--fill) / 0.14); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--fill) / 0.18) transparent; }
 
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+/* ----------------------------------------------------------------- materials */
+@layer components {
+  .mat-chrome {
+    background: rgb(var(--chrome) / var(--chrome-alpha));
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
+  .mat-panel {
+    background: rgb(var(--surface) / var(--panel-alpha));
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 0.5px solid rgb(var(--line) / 0.1);
+    box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.5), 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+  :root[data-theme="dark"] .mat-panel { box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.08); }
+  .mat-glass {
+    position: relative;
+    background: linear-gradient(160deg, var(--glass-top), var(--glass-bottom));
+    backdrop-filter: blur(36px) saturate(190%);
+    -webkit-backdrop-filter: blur(36px) saturate(190%);
+    border: 0.5px solid var(--glass-rim);
+    box-shadow: inset 0 1px 0 var(--glass-rim), inset 0 -1px 0 rgb(255 255 255 / 0.06), var(--glass-shadow);
+    isolation: isolate;
+  }
+  .mat-glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+    background: linear-gradient(115deg, var(--glass-spec), transparent 30%, transparent 70%, rgb(255 255 255 / 0.06));
+    mix-blend-mode: soft-light;
+  }
+  .mat-popover {
+    background: rgb(var(--raised) / 0.86);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 0.5px solid rgb(var(--line) / 0.14);
+    box-shadow: var(--window-shadow);
+  }
+  /* Pointer-following specular light (set --mx/--my via useSheen). */
+  .sheen::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.35s;
+    background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 0%), var(--sheen), transparent 60%);
+    z-index: 1;
+  }
+  .sheen:hover::after { opacity: 1; }
+  .field {
+    background: rgb(var(--fill) / 0.045);
+    border: 0.5px solid rgb(var(--line) / 0.12);
+    box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.03);
+  }
+  :root[data-theme="dark"] .field { background: rgb(0 0 0 / 0.25); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mat-chrome, .mat-panel, .mat-glass, .mat-popover { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .mat-chrome { background: rgb(var(--chrome)); }
+  .mat-panel, .mat-glass { background: rgb(var(--surface)); }
+  .mat-popover { background: rgb(var(--raised)); }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ----------------------------------------------------------------- dialogs (Radix data-state) */
+.dlg-overlay[data-state="open"] { animation: dlg-fade 0.2s ease-out; }
+.dlg-overlay[data-state="closed"] { animation: dlg-fade 0.15s ease-in reverse; }
+.dlg-content[data-state="open"] { animation: dlg-in 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.08); }
+.dlg-content[data-state="closed"] { animation: dlg-out 0.16s ease-in forwards; }
+@keyframes dlg-fade { from { opacity: 0; } }
+@keyframes dlg-in { from { opacity: 0; transform: translate(var(--tw-translate-x, 0), 14px) scale(0.96); filter: blur(4px); } }
+@keyframes dlg-out { to { opacity: 0; transform: translate(var(--tw-translate-x, 0), 6px) scale(0.98); } }
 
 /* Native select with a custom chevron (kept out of Tailwind classes so bg colour utilities still merge). */
 .select-chevron {

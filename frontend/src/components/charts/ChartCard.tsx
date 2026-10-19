@@ -7,7 +7,7 @@ import { Button, Card, cn } from "@/components/ui/primitives";
 export const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"] as const;
 export const GRID = "var(--chart-grid)";
 export const AXIS = "var(--chart-axis)";
-export const NEG = "#e66767"; // diverging negative pole (red), positive pole is series-1 blue
+export const NEG = "var(--series-neg)"; // diverging negative pole (red), positive pole is series-1 blue
 export const axisProps = { stroke: AXIS, tick: { fill: AXIS, fontSize: 11 }, tickLine: false, axisLine: false } as const;
 
 export interface TableSpec { columns: string[]; rows: (string | number)[][] }

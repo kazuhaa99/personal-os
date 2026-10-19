@@ -44,7 +44,7 @@ export function Gallery() {
       {CONCEPTS.map((c, i) => <ConceptSection key={c.id} concept={c} index={i} />)}
 
       <footer className="lab-footer">
-        Design lab is isolated from the real app: <Link to="/">return to Personal OS</Link>. Photo credits: <a href="/design-lab/CREDITS.md">CREDITS.md</a>.
+        Design lab is isolated from the real app: <Link to="/">return to Personal OS</Link>. Photo credits: <a href="/media/CREDITS.md">CREDITS.md</a>.
       </footer>
     </div>
   );

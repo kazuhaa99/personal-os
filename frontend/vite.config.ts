@@ -16,7 +16,7 @@ export default defineConfig({
     proxy: { "/api": { target: apiTarget, changeOrigin: false } },
   },
   build: {
-    rollupOptions: { output: { manualChunks: { charts: ["recharts"], vendor: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"] } } },
+    rollupOptions: { output: { manualChunks: { charts: ["recharts"], motion: ["framer-motion"], vendor: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"] } } },
   },
   test: {
     environment: "jsdom",

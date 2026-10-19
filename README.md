@@ -58,6 +58,20 @@ Settings → **Load demo data**. Every demo record is flagged `is_demo`, demo ac
 named `Demo · …`, and a banner is shown while demo data exists. **Remove demo data**
 deletes all of it without touching your own records.
 
+### Design system
+
+The app uses **Premium Native** (concept D from the design lab) as its structure with **Liquid Glass** materials:
+
+- A macOS-style window floating over a photo wallpaper; a translucent sidebar (navigation, live balances, demo notice),
+  a unified toolbar with ⌘K search, appearance menu and a split **New** button (transaction / task / goal / habit).
+- Material tiers in `src/index.css`: `mat-chrome` (sidebar/toolbar — wallpaper shows through), `mat-glass` (one hero
+  surface per page, with a pointer-following specular light), `mat-panel` (near-opaque — where numbers, tables and forms
+  live), `mat-popover` (menus, palette, dialogs). `prefers-reduced-transparency` falls back to solid surfaces;
+  `prefers-reduced-motion` disables motion.
+- Light, dark or "match system" plus five wallpapers (Settings → Appearance), remembered per browser.
+- **⌘K / Ctrl+K command palette**: navigate, create, switch appearance, and search real transactions and tasks.
+- Motion: blurred cross-fades between pages, spring dialogs, animated selection pills in the sidebar and segmented controls.
+
 ### Design Lab (visual direction exploration)
 
 Open **http://127.0.0.1:5173/design-lab** (local dev) to compare four interactive redesign concepts —

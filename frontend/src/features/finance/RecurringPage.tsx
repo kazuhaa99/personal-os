@@ -141,10 +141,10 @@ export function RecurringPage() {
         ) : (
           <ul className="px-2 pb-2">
             {recurringExpected.map((p) => (
-              <li key={`${p.source_id}-${p.due_date}`} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.03]">
+              <li key={`${p.source_id}-${p.due_date}`} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-fill/[0.03]">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{p.name}</p>
-                  <p className={cn("text-xs", p.overdue ? "text-[#f07a7a]" : "text-ink-3")}>{p.overdue ? "Overdue · " : ""}{relativeDay(p.due_date, today)} · {fmtDate(p.due_date, "d MMM")} · {p.account_name}</p>
+                  <p className={cn("text-xs", p.overdue ? "text-bad" : "text-ink-3")}>{p.overdue ? "Overdue · " : ""}{relativeDay(p.due_date, today)} · {fmtDate(p.due_date, "d MMM")} · {p.account_name}</p>
                 </div>
                 <MoneyText value={p.type === "expense" ? `-${p.amount}` : p.amount} currency={p.currency} signed className="text-sm" />
                 <Button size="sm" variant={p.overdue || p.due_date <= today ? "primary" : "secondary"} onClick={() => setConfirming(p)}><CheckCircle2 className="h-3.5 w-3.5" /> Record</Button>
@@ -165,7 +165,7 @@ export function RecurringPage() {
         {isLoading ? <LoadingBlock /> : !rules?.length ? (
           <Card><EmptyState title="No recurring payments" body="Register subscriptions, rent, salary and other repeating money so they show up before they happen." action={<Button variant="primary" onClick={() => setForm({ open: true, editing: null })}>Add a rule</Button>} /></Card>
         ) : (
-          <Card className="divide-y divide-white/[0.06]">
+          <Card className="divide-y divide-line/[0.08]">
             {rules.map((r) => (
               <div key={r.id} className={cn("group flex items-center gap-4 px-5 py-3.5", !r.is_active && "opacity-60")}>
                 <div className="min-w-0 flex-1">

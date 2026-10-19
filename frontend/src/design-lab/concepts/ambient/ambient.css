@@ -68,7 +68,7 @@
 }
 .ac-planet-surface {
   position: absolute; inset: 0;
-  background: url("/design-lab/img/earth.jpg") repeat-x 0 30% / auto 120%, #0f0f1e;
+  background: url("/media/earth.jpg") repeat-x 0 30% / auto 120%, #0f0f1e;
   animation: ac-rotate 360s linear infinite;
   filter: saturate(1.3) brightness(1.5);
 }

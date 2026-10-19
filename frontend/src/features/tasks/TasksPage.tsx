@@ -75,7 +75,7 @@ export function TasksPage() {
             body={view === "today" ? "Add something above, or enjoy the free time." : undefined} />
         ) : view === "today" && overdue.length > 0 ? (
           <>
-            <p className="px-3 pt-2 pb-1 text-2xs uppercase tracking-wider text-[#f07a7a]">Overdue · {overdue.length}</p>
+            <p className="px-3 pt-2 pb-1 text-2xs uppercase tracking-wider text-bad">Overdue · {overdue.length}</p>
             {overdue.map((t) => <TaskRow key={t.id} task={t} today={today} />)}
             {rest.length > 0 && <p className="px-3 pt-3 pb-1 text-2xs uppercase tracking-wider text-ink-3">Today</p>}
             {rest.map((t) => <TaskRow key={t.id} task={t} today={today} />)}

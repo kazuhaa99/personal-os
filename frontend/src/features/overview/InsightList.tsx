@@ -17,7 +17,7 @@ export function InsightList({ items, limit }: { items: Insight[]; limit?: number
     return <EmptyState className="py-6" title="Nothing needs attention" body="Alerts appear here when a budget runs over, a payment is due, or a task or goal slips." />;
   }
   return (
-    <ul className="divide-y divide-white/[0.06]">
+    <ul className="divide-y divide-line/[0.08]">
       {items.slice(0, limit).map((i) => {
         const { icon: Icon, cls, label } = ICONS[i.severity];
         const Body = (

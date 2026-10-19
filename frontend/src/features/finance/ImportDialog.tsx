@@ -15,7 +15,7 @@ function IssueTable({ items, tone }: { items: ImportIssue[]; tone: "bad" | "warn
           {items.map((i) => (
             <tr key={i.row} className="border-t hairline align-top">
               <td className="px-2.5 py-1.5 tnum text-ink-2">{i.row}</td>
-              <td className={tone === "bad" ? "px-2.5 py-1.5 text-[#f07a7a]" : "px-2.5 py-1.5 text-warn"}>{i.reason}</td>
+              <td className={tone === "bad" ? "px-2.5 py-1.5 text-bad" : "px-2.5 py-1.5 text-warn"}>{i.reason}</td>
               <td className="px-2.5 py-1.5 text-ink-3 break-all">{Object.values(i.raw).join(" · ")}</td>
             </tr>
           ))}
@@ -70,13 +70,13 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             Import {preview?.imported ?? 0} row(s)
           </Button></>
       )}>
-      <div className="rounded-lg bg-black/25 border hairline p-3 text-xs text-ink-2 leading-relaxed">
+      <div className="rounded-lg bg-fill/[0.04] border hairline p-3 text-xs text-ink-2 leading-relaxed">
         Header row required. Columns: <code className="text-ink">date, type, amount, account, to_account, category, description, payee, tags, currency</code>.
         Required: <code className="text-ink">date, amount, account</code>. Dates as YYYY-MM-DD or DD.MM.YYYY. If <code>type</code> is empty, a negative amount
         is an expense and a positive one income. Tags separated by <code>|</code>. Exports from this app re-import as-is.
       </div>
       {!done && (
-        <label className="flex items-center gap-3 rounded-lg border border-dashed border-white/15 px-4 py-5 cursor-pointer hover:bg-white/[0.03]">
+        <label className="flex items-center gap-3 rounded-lg border border-dashed border-line/20 px-4 py-5 cursor-pointer hover:bg-fill/[0.03]">
           <FileUp className="h-5 w-5 text-ink-3" />
           <span className="text-sm text-ink-2">{file ? file.name : "Choose a .csv file (max 5 MB)"}</span>
           <input type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => e.target.files?.[0] && check(e.target.files[0])} />

@@ -133,7 +133,7 @@ export function AnalyticsPage() {
                     <span className="text-ink-2 group-hover:text-ink truncate">{c.name}</span>
                     <span className="tnum text-ink">{formatMoney(c.amount, cur)} <span className="text-ink-3 ml-1 w-10 inline-block text-right">{c.share}%</span></span>
                   </div>
-                  <div className="mt-1 h-2 rounded-[3px] bg-white/[0.04]">
+                  <div className="mt-1 h-2 rounded-[3px] bg-fill/[0.04]">
                     <div className="h-full rounded-[3px] group-hover:brightness-125" style={{ width: `${Math.max(1, num(c.share))}%`, background: SERIES[0] }} />
                   </div>
                 </Link>
@@ -200,7 +200,7 @@ export function AnalyticsPage() {
       <Card>
         <CardHeader title="Upcoming installment obligations" subtitle="Next 90 days — projected from your plans, not yet paid." to="/finances/installments" />
         {installments.length === 0 ? <p className="px-5 pb-4 text-xs text-ink-3">No scheduled installment payments.</p> : (
-          <ul className="px-5 pb-4 divide-y divide-white/[0.06]">
+          <ul className="px-5 pb-4 divide-y divide-line/[0.08]">
             {installments.map((p) => (
               <li key={`${p.source_id}-${p.due_date}`} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-ink-2">{fmtDate(p.due_date, "d MMM yyyy")} · {p.name}</span>

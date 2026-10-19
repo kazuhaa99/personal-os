@@ -7,7 +7,7 @@ import { Badge, cn, DemoBadge } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 
 const PRIORITY_DOT: Record<Task["priority"], string> = {
-  urgent: "bg-bad", high: "bg-warn", medium: "bg-accent/70", low: "bg-white/20",
+  urgent: "bg-bad", high: "bg-warn", medium: "bg-accent/70", low: "bg-fill/20",
 };
 
 export function TaskCheck({ task }: { task: Task }) {
@@ -27,7 +27,7 @@ export function TaskCheck({ task }: { task: Task }) {
       disabled={toggle.isPending}
       className={cn(
         "mt-0.5 h-[18px] w-[18px] shrink-0 rounded-[5px] border grid place-items-center transition-colors",
-        done ? "bg-accent border-accent text-accent-ink" : "border-white/25 hover:border-accent",
+        done ? "bg-accent border-accent text-accent-ink" : "border-ink-3/50 hover:border-accent",
       )}
     >
       {done && <Check className="h-3 w-3" strokeWidth={3} />}
@@ -39,7 +39,7 @@ export function TaskRow({ task, today, compact }: { task: Task; today: string; c
   const qa = useQuickActions();
   const done = task.status === "done";
   return (
-    <div className={cn("group flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.03]", compact && "py-2")}>
+    <div className={cn("group flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-fill/[0.03]", compact && "py-2")}>
       <TaskCheck task={task} />
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => qa.editTask(task)}>
         <p className={cn("text-sm leading-5 truncate", done && "line-through text-ink-3")}>
@@ -52,7 +52,7 @@ export function TaskRow({ task, today, compact }: { task: Task; today: string; c
         {task.recurrence !== "none" && <Repeat className="h-3.5 w-3.5 text-ink-3" aria-label={`Repeats ${task.recurrence}`} />}
         {task.category && !compact && <Badge>{task.category}</Badge>}
         {task.due_date && (
-          <span className={cn("tnum", task.overdue ? "text-[#f07a7a]" : "text-ink-3")}>
+          <span className={cn("tnum", task.overdue ? "text-bad" : "text-ink-3")}>
             {relativeDay(task.due_date, today)}{task.due_time ? ` ${task.due_time.slice(0, 5)}` : ""}
           </span>
         )}

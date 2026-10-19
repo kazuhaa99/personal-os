@@ -1,9 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { formatMoney, isNegative } from "@/lib/format";
+import { useSheen } from "@/lib/useSheen";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,10 +15,10 @@ export function cn(...inputs: ClassValue[]) {
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink hover:bg-accent/90 font-medium",
-  secondary: "bg-white/[0.06] text-ink hover:bg-white/[0.1] border hairline",
-  ghost: "text-ink-2 hover:text-ink hover:bg-white/[0.06]",
-  danger: "bg-bad/90 text-white hover:bg-bad",
+  primary: "bg-accent text-accent-ink font-medium shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.15)] hover:brightness-110 active:brightness-95",
+  secondary: "bg-surface/80 text-ink border hairline shadow-[0_1px_2px_rgb(0_0_0/0.06)] hover:bg-surface active:bg-fill/[0.06]",
+  ghost: "text-ink-2 hover:text-ink hover:bg-fill/[0.06] active:bg-fill/[0.1]",
+  danger: "bg-bad text-white font-medium hover:brightness-110 active:brightness-95",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -34,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm transition-[background-color,filter,transform] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
         size === "md" && "h-9 px-3.5",
         size === "sm" && "h-7 px-2.5 text-xs",
         size === "icon" && "h-8 w-8",
@@ -52,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 // ------------------------------------------------------------------ form controls
 
 const control =
-  "w-full rounded-lg bg-black/30 border hairline px-3 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 aria-[invalid=true]:border-bad/70";
+  "field w-full rounded-lg px-3 text-sm text-ink placeholder:text-ink-3 transition-shadow focus:outline-none focus:ring-[3px] focus:ring-accent/35 disabled:opacity-60 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-bad/60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cn(control, "h-9", className)} {...rest} />;
@@ -93,7 +95,13 @@ export function Checkbox({ checked, onChange, label, className }: { checked: boo
 // ------------------------------------------------------------------ surfaces
 
 export function Card({ className, children, as: As = "section" }: { className?: string; children: ReactNode; as?: "section" | "div" | "article" }) {
-  return <As className={cn("rounded-xl bg-surface border hairline", className)}>{children}</As>;
+  return <As className={cn("mat-panel rounded-2xl", className)}>{children}</As>;
+}
+
+/** Hero surface: translucent Liquid Glass with a pointer-following specular light. Use sparingly. */
+export function GlassCard({ className, children }: { className?: string; children: ReactNode }) {
+  const ref = useSheen<HTMLElement>();
+  return <section ref={ref} className={cn("mat-glass sheen rounded-2xl overflow-hidden", className)}>{children}</section>;
 }
 
 export function CardHeader({ title, subtitle, action, to, className }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode; to?: string; className?: string }) {
@@ -101,9 +109,9 @@ export function CardHeader({ title, subtitle, action, to, className }: { title: 
     <div className={cn("flex items-start justify-between gap-3 px-5 pt-4 pb-3", className)}>
       <div className="min-w-0">
         {to ? (
-          <Link to={to} className="text-sm font-medium text-ink hover:text-accent transition-colors">{title}</Link>
+          <Link to={to} className="text-[15px] font-semibold text-ink hover:text-accent transition-colors">{title}</Link>
         ) : (
-          <h2 className="text-sm font-medium text-ink">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         )}
         {subtitle && <p className="text-xs text-ink-3 mt-0.5">{subtitle}</p>}
       </div>
@@ -120,7 +128,7 @@ export function MetricCard({ label, value, sub, tone, to, className }: { label: 
       {sub && <div className="mt-1 text-xs text-ink-3">{sub}</div>}
     </>
   );
-  const cls = cn("block rounded-xl bg-surface border hairline px-4 py-3.5", to && "hover:bg-raised transition-colors", className);
+  const cls = cn("block mat-panel rounded-2xl px-4 py-3.5", to && "hover:bg-surface transition-colors", className);
   return to ? <Link to={to} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
@@ -139,7 +147,7 @@ export function Progress({ value, tone = "accent", className, label }: { value: 
   const pct = Math.max(0, Math.min(100, value));
   const color = { accent: "bg-accent", good: "bg-good", warn: "bg-warn", bad: "bg-bad" }[tone];
   return (
-    <div className={cn("h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden", className)} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+    <div className={cn("h-1.5 w-full rounded-full bg-fill/[0.08] overflow-hidden", className)} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className={cn("h-full rounded-full transition-[width]", color)} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -147,12 +155,12 @@ export function Progress({ value, tone = "accent", className, label }: { value: 
 
 export function Badge({ children, tone = "neutral", className }: { children: ReactNode; tone?: "neutral" | "good" | "warn" | "bad" | "accent" | "demo"; className?: string }) {
   const tones = {
-    neutral: "bg-white/[0.06] text-ink-2",
-    good: "bg-good/15 text-good",
-    warn: "bg-warn/15 text-warn",
-    bad: "bg-bad/15 text-[#f07a7a]",
-    accent: "bg-accent/15 text-accent",
-    demo: "bg-[#a78bfa]/15 text-[#c4b5fd] border border-[#a78bfa]/30",
+    neutral: "bg-fill/[0.06] text-ink-2",
+    good: "bg-good/12 text-good",
+    warn: "bg-warn/12 text-warn",
+    bad: "bg-bad/12 text-bad",
+    accent: "bg-accent/12 text-accent",
+    demo: "bg-demo/12 text-demo border border-demo/30",
   };
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium whitespace-nowrap", tones[tone], className)}>{children}</span>;
 }
@@ -194,8 +202,9 @@ export function ErrorBlock({ error, onRetry }: { error: unknown; onRetry?: () =>
 // ------------------------------------------------------------------ segmented control
 
 export function Segmented<T extends string>({ value, onChange, options, className, size = "md" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md" }) {
+  const id = useId();
   return (
-    <div role="tablist" className={cn("inline-flex rounded-lg bg-black/30 border hairline p-0.5 overflow-x-auto max-w-full", className)}>
+    <div role="tablist" className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -204,13 +213,18 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "rounded-md px-3 text-sm whitespace-nowrap transition-colors",
+            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors",
             size === "md" ? "h-8" : "h-7 text-xs px-2.5",
-            value === o.value ? "bg-white/[0.1] text-ink" : "text-ink-3 hover:text-ink-2",
+            value === o.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
           )}
         >
-          {o.label}
-          {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-3 tnum">{o.count}</span>}
+          {value === o.value && (
+            <motion.span layoutId={`seg-${id}`} className="absolute inset-0 rounded-[7px] bg-raised shadow-[0_0_0_0.5px_rgb(var(--line)/0.12),0_1px_3px_rgb(0_0_0/0.12)]" transition={{ type: "spring", stiffness: 500, damping: 38 }} />
+          )}
+          <span className="relative">
+            {o.label}
+            {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-3 tnum">{o.count}</span>}
+          </span>
         </button>
       ))}
     </div>
