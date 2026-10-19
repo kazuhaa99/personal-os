@@ -251,7 +251,7 @@ export function AppShell() {
               <motion.div key={location.pathname}
                 initial={{ opacity: 0, y: 10, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
                 transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                className="mx-auto w-full max-w-[1400px] px-4 py-5 lg:px-6 lg:py-6 pb-28 lg:pb-8">
+                className="mx-auto w-full max-w-[1680px] px-4 py-5 lg:px-6 lg:py-6 pb-28 lg:pb-8">
                 {outlet}
               </motion.div>
             </AnimatePresence>
