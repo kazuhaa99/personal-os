@@ -1,0 +1,38 @@
+import type { Dict } from "../../i18n";
+
+// Shared vocabulary: default category names (translated on display only), dates, generic words.
+export const common: Dict = {
+  "Salary": "Зарплата",
+  "Freelance income": "Фриланс",
+  "Other income": "Прочий доход",
+  "Food and groceries": "Продукты",
+  "Restaurants and coffee": "Рестораны и кофе",
+  "Transport": "Транспорт",
+  "Housing and utilities": "Жильё и коммуналка",
+  "Shopping": "Покупки",
+  "Entertainment": "Развлечения",
+  "Education": "Образование",
+  "Health and fitness": "Здоровье и спорт",
+  "Subscriptions": "Подписки",
+  "Debt and installment payments": "Долги и рассрочки",
+  "Savings": "Накопления",
+  "Other": "Другое",
+  "Today": "Сегодня",
+  "Tomorrow": "Завтра",
+  "Yesterday": "Вчера",
+  "{n} days ago": { one: "{n} день назад", few: "{n} дня назад", many: "{n} дней назад", other: "{n} дня назад" },
+  "Weekly": "Еженедельно",
+  "Every 2 weeks": "Раз в 2 недели",
+  "Monthly": "Ежемесячно",
+  "Quarterly": "Ежеквартально",
+  "Yearly": "Ежегодно",
+  "Cash": "Наличные",
+  "Bank": "Банк",
+  // date-fns patterns: stand-alone month names ("октябрь 2026", not "октября 2026")
+  "MMMM yyyy": "LLLL yyyy",
+  "MMM yyyy": "LLL yyyy",
+  "Something went wrong": "Что-то пошло не так",
+  "Sign in required": "Нужно войти",
+  "Request failed ({status})": "Ошибка запроса ({status})",
+  "Export failed ({status})": "Ошибка экспорта ({status})",
+};

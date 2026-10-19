@@ -1,3 +1,5 @@
+import { getLang, t } from "./i18n";
+
 // Thin fetch wrapper. All requests go to the same origin (/api, proxied by Vite).
 
 const TOKEN_KEY = "pos.apiToken";
@@ -37,7 +39,8 @@ export function qs(params: Query = {}): string {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {};
+  // Accept-Language lets the server localise generated text (insights).
+  const headers: Record<string, string> = { "Accept-Language": getLang() };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   let payload: BodyInit | undefined;
@@ -52,7 +55,7 @@ async function request<T>(method: string, path: string, body?: unknown, init: Re
   const data = isJson ? await res.json() : await res.text();
   if (!res.ok) {
     const err = isJson ? (data as { error?: { message?: string; code?: string; details?: unknown }; detail?: string }) : null;
-    const message = err?.error?.message ?? err?.detail ?? (res.status === 401 ? "API token required (Settings)" : `Request failed (${res.status})`);
+    const message = err?.error?.message ?? err?.detail ?? (res.status === 401 ? t("Sign in required") : t("Request failed ({status})", { status: res.status }));
     throw new ApiError(res.status, message, err?.error?.code, err?.error?.details);
   }
   return data as T;
@@ -67,7 +70,7 @@ export const api = {
   async download(path: string, params: Query, filename: string) {
     const token = getToken();
     const res = await fetch(`/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-    if (!res.ok) throw new ApiError(res.status, `Export failed (${res.status})`);
+    if (!res.ok) throw new ApiError(res.status, t("Export failed ({status})", { status: res.status }));
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");
     a.href = url;
@@ -80,5 +83,5 @@ export const api = {
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
-  return "Something went wrong";
+  return t("Something went wrong");
 }

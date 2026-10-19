@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { QuickActionsProvider } from "./components/layout/QuickActions";
+import { AuthGate } from "./features/auth/AuthGate";
 import { AnalyticsPage } from "./features/analytics/AnalyticsPage";
 import { AccountsPage } from "./features/finance/AccountsPage";
 import { BudgetsPage } from "./features/finance/BudgetsPage";
@@ -22,7 +23,7 @@ export function App() {
   return (
     <Routes>
       <Route path="design-lab/*" element={<Suspense fallback={null}><DesignLab /></Suspense>} />
-      <Route element={<QuickActionsProvider><AppShell /></QuickActionsProvider>}>
+      <Route element={<AuthGate><QuickActionsProvider><AppShell /></QuickActionsProvider></AuthGate>}>
         <Route index element={<OverviewPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="goals" element={<GoalsPage />} />

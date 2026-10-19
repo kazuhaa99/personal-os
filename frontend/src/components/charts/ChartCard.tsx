@@ -1,6 +1,7 @@
 import { Table2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { TooltipProps } from "recharts";
+import { t } from "@/lib/i18n";
 import { Button, Card, cn } from "@/components/ui/primitives";
 
 // Chart chrome — validated dark categorical steps (see dataviz palette).
@@ -29,7 +30,7 @@ export function ChartCard({ title, subtitle, legend, table, children, className,
           {action}
           {table && !empty && (
             <Button variant="ghost" size="sm" aria-pressed={showTable} onClick={() => setShowTable((s) => !s)}>
-              <Table2 className="h-3.5 w-3.5" /> {showTable ? "Chart" : "Table"}
+              <Table2 className="h-3.5 w-3.5" /> {showTable ? t("Chart") : t("Table")}
             </Button>
           )}
         </div>

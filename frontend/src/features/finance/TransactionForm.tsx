@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { normalizeAmount, todayISO } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { useAccounts, useAction, useCategories } from "@/lib/queries";
 import type { Transaction, TxType } from "@/lib/types";
 import { Modal } from "@/components/ui/dialog";
@@ -69,23 +70,23 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
 
   const save = useAction(
     (body: Record<string, unknown>) => (editing ? api.patch(`/transactions/${editing.id}`, body) : api.post("/transactions", body)),
-    { success: editing ? "Transaction updated" : "Transaction added", onSuccess: () => onOpenChange(false) },
+    { success: editing ? t("Transaction updated") : t("Transaction added"), onSuccess: () => onOpenChange(false) },
   );
 
   function submit() {
     const e: Record<string, string> = {};
     const amt = normalizeAmount(amount);
-    if (!amt || Number(amt) <= 0) e.amount = "Enter an amount greater than 0 with at most 2 decimals";
-    if (!date) e.date = "Pick a date";
-    if (!accountId) e.account = "Choose an account";
+    if (!amt || Number(amt) <= 0) e.amount = t("Enter an amount greater than 0 with at most 2 decimals");
+    if (!date) e.date = t("Pick a date");
+    if (!accountId) e.account = t("Choose an account");
     if (type === "transfer") {
-      if (!toAccountId) e.to_account = "Choose the destination account";
-      else if (toAccountId === accountId) e.to_account = "Choose a different account";
+      if (!toAccountId) e.to_account = t("Choose the destination account");
+      else if (toAccountId === accountId) e.to_account = t("Choose a different account");
       else {
         const dst = accounts.find((a) => String(a.id) === toAccountId);
-        if (dst && source && dst.currency !== source.currency) e.to_account = "Both accounts must use the same currency";
+        if (dst && source && dst.currency !== source.currency) e.to_account = t("Both accounts must use the same currency");
       }
-    } else if (!categoryId) e.category = "Choose a category";
+    } else if (!categoryId) e.category = t("Choose a category");
     setErrors(e);
     if (Object.keys(e).length) return;
     rememberAccount(accountId);
@@ -98,7 +99,7 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
       category_id: type === "transfer" ? null : Number(categoryId),
       description: description.trim(),
       payee: payee.trim() || null,
-      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      tags: tags.split(",").map((s) => s.trim()).filter(Boolean),
     });
   }
 
@@ -106,69 +107,69 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={editing ? "Edit transaction" : "New transaction"}
-      description={type === "transfer" ? "Transfers move money between your accounts and never count as income or expense." : undefined}
+      title={editing ? t("Edit transaction") : t("New transaction")}
+      description={type === "transfer" ? t("Transfers move money between your accounts and never count as income or expense.") : undefined}
       onSubmit={submit}
-      footer={<><Button onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? "Save" : "Add"}</Button></>}
+      footer={<><Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? t("Save") : t("Add")}</Button></>}
     >
       {accounts.length === 0 ? (
-        <p className="text-sm text-ink-2">Create an account first (Finances → Accounts).</p>
+        <p className="text-sm text-ink-2">{t("Create an account first (Finances → Accounts).")}</p>
       ) : (
         <>
           <Segmented
             value={type}
-            onChange={(t) => { setType(t); setCategoryId(""); }}
-            options={[{ value: "expense", label: "Expense" }, { value: "income", label: "Income" }, { value: "transfer", label: "Transfer" }]}
+            onChange={(v) => { setType(v); setCategoryId(""); }}
+            options={[{ value: "expense", label: t("Expense") }, { value: "income", label: t("Income") }, { value: "transfer", label: t("Transfer") }]}
             className={linkedToInstallment ? "pointer-events-none opacity-50" : ""}
           />
-          {linkedToInstallment && <p className="text-xs text-warn">Recorded by an installment payment — amount, type and account are managed in Installments.</p>}
+          {linkedToInstallment && <p className="text-xs text-warn">{t("Recorded by an installment payment — amount, type and account are managed in Installments.")}</p>}
           <div className="grid grid-cols-2 gap-3">
-            <Field label={`Amount${source ? ` (${source.currency})` : ""}`} error={errors.amount}>
+            <Field label={`${t("Amount")}${source ? ` (${source.currency})` : ""}`} error={errors.amount}>
               {(id) => <Input id={id} ref={amountRef} autoFocus inputMode="decimal" placeholder="0.00" value={amount} disabled={linkedToInstallment} aria-invalid={!!errors.amount} onChange={(e) => setAmount(e.target.value)} className="tnum text-base" />}
             </Field>
-            <Field label="Date" error={errors.date}>
+            <Field label={t("Date")} error={errors.date}>
               {(id) => <Input id={id} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={!!errors.date} />}
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label={type === "transfer" ? "From account" : "Account"} error={errors.account}>
+            <Field label={type === "transfer" ? t("From account") : t("Account")} error={errors.account}>
               {(id) => (
                 <Select id={id} value={accountId} disabled={linkedToInstallment} onChange={(e) => setAccountId(e.target.value)} aria-invalid={!!errors.account}>
-                  <option value="">Select…</option>
+                  <option value="">{t("Select…")}</option>
                   {active.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}
                 </Select>
               )}
             </Field>
             {type === "transfer" ? (
-              <Field label="To account" error={errors.to_account}>
+              <Field label={t("To account")} error={errors.to_account}>
                 {(id) => (
                   <Select id={id} value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} aria-invalid={!!errors.to_account}>
-                    <option value="">Select…</option>
+                    <option value="">{t("Select…")}</option>
                     {active.filter((a) => String(a.id) !== accountId).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}
                   </Select>
                 )}
               </Field>
             ) : (
-              <Field label="Category" error={errors.category}>
+              <Field label={t("Category")} error={errors.category}>
                 {(id) => (
                   <Select id={id} value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-invalid={!!errors.category}>
-                    <option value="">Select…</option>
-                    {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <option value="">{t("Select…")}</option>
+                    {cats.map((c) => <option key={c.id} value={c.id}>{t(c.name)}</option>)}
                   </Select>
                 )}
               </Field>
             )}
           </div>
-          <Field label="Description">
-            {(id) => <Input id={id} value={description} maxLength={255} placeholder={type === "transfer" ? "e.g. Monthly savings" : "What was it for?"} onChange={(e) => setDescription(e.target.value)} />}
+          <Field label={t("Description")}>
+            {(id) => <Input id={id} value={description} maxLength={255} placeholder={type === "transfer" ? t("e.g. Monthly savings") : t("What was it for?")} onChange={(e) => setDescription(e.target.value)} />}
           </Field>
           {type !== "transfer" && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label={type === "income" ? "Payer (optional)" : "Merchant / payee (optional)"}>
+              <Field label={type === "income" ? t("Payer (optional)") : t("Merchant / payee (optional)")}>
                 {(id) => <Input id={id} value={payee} maxLength={120} onChange={(e) => setPayee(e.target.value)} />}
               </Field>
-              <Field label="Tags (comma separated)">
-                {(id) => <Input id={id} value={tags} placeholder="trip, gift" onChange={(e) => setTags(e.target.value)} />}
+              <Field label={t("Tags (comma separated)")}>
+                {(id) => <Input id={id} value={tags} placeholder={t("trip, gift")} onChange={(e) => setTags(e.target.value)} />}
               </Field>
             </div>
           )}

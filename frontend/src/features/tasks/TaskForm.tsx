@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { todayISO } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { useAction } from "@/lib/queries";
 import type { Goal, Priority, Project, Task } from "@/lib/types";
 import { Modal } from "@/components/ui/dialog";
@@ -41,14 +42,14 @@ export function TaskForm({ open, onOpenChange, editing, draft }: { open: boolean
 
   const save = useAction(
     (body: Record<string, unknown>) => (editing ? api.patch(`/tasks/${editing.id}`, body) : api.post("/tasks", body)),
-    { success: editing ? "Task updated" : "Task added", onSuccess: () => onOpenChange(false) },
+    { success: editing ? t("Task updated") : t("Task added"), onSuccess: () => onOpenChange(false) },
   );
 
   function submit() {
     const e: Record<string, string> = {};
-    if (!title.trim()) e.title = "Give the task a title";
-    if (recurrence !== "none" && !dueDate) e.due = "Recurring tasks need a due date";
-    if (dueTime && !dueDate) e.due = "A time needs a date";
+    if (!title.trim()) e.title = t("Give the task a title");
+    if (recurrence !== "none" && !dueDate) e.due = t("Recurring tasks need a due date");
+    if (dueTime && !dueDate) e.due = t("A time needs a date");
     setErrors(e);
     if (Object.keys(e).length) return;
     save.mutate({
@@ -65,67 +66,67 @@ export function TaskForm({ open, onOpenChange, editing, draft }: { open: boolean
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title={editing ? "Edit task" : "New task"} onSubmit={submit}
-      footer={<><Button onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? "Save" : "Add task"}</Button></>}>
-      <Field label="Title" error={errors.title}>
-        {(id) => <Input id={id} autoFocus value={title} maxLength={200} placeholder="What needs to be done?" onChange={(e) => setTitle(e.target.value)} aria-invalid={!!errors.title} />}
+    <Modal open={open} onOpenChange={onOpenChange} title={editing ? t("Edit task") : t("New task")} onSubmit={submit}
+      footer={<><Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? t("Save") : t("Add task")}</Button></>}>
+      <Field label={t("Title")} error={errors.title}>
+        {(id) => <Input id={id} autoFocus value={title} maxLength={200} placeholder={t("What needs to be done?")} onChange={(e) => setTitle(e.target.value)} aria-invalid={!!errors.title} />}
       </Field>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Due date" error={errors.due} className="col-span-2">
+        <Field label={t("Due date")} error={errors.due} className="col-span-2">
           {(id) => (
             <div className="flex gap-2">
               <Input id={id} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              {dueDate && <Button variant="ghost" size="sm" className="h-9" onClick={() => { setDueDate(""); setDueTime(""); }}>Clear</Button>}
+              {dueDate && <Button variant="ghost" size="sm" className="h-9" onClick={() => { setDueDate(""); setDueTime(""); }}>{t("Clear")}</Button>}
             </div>
           )}
         </Field>
-        <Field label="Time">
+        <Field label={t("Time")}>
           {(id) => <Input id={id} type="time" value={dueTime} disabled={!dueDate} onChange={(e) => setDueTime(e.target.value)} />}
         </Field>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Priority">
+        <Field label={t("Priority")}>
           {(id) => (
             <Select id={id} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option>
+              <option value="low">{t("Low")}</option><option value="medium">{t("Medium")}</option><option value="high">{t("High")}</option><option value="urgent">{t("Urgent")}</option>
             </Select>
           )}
         </Field>
-        <Field label="Repeats">
+        <Field label={t("Repeats")}>
           {(id) => (
             <Select id={id} value={recurrence} onChange={(e) => setRecurrence(e.target.value as Task["recurrence"])}>
-              <option value="none">Never</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+              <option value="none">{t("Never")}</option><option value="daily">{t("Daily")}</option><option value="weekdays">{t("Weekdays")}</option><option value="weekly">{t("Weekly")}</option><option value="monthly">{t("Monthly")}</option>
             </Select>
           )}
         </Field>
-        <Field label="Category">
+        <Field label={t("Category")}>
           {(id) => (
             <>
-              <Input id={id} list={`${id}-list`} value={category} maxLength={40} placeholder="optional" onChange={(e) => setCategory(e.target.value)} />
+              <Input id={id} list={`${id}-list`} value={category} maxLength={40} placeholder={t("optional")} onChange={(e) => setCategory(e.target.value)} />
               <datalist id={`${id}-list`}>{categories.map((c) => <option key={c} value={c} />)}</datalist>
             </>
           )}
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Goal (optional)">
+        <Field label={t("Goal (optional)")}>
           {(id) => (
             <Select id={id} value={goalId} onChange={(e) => setGoalId(e.target.value)}>
-              <option value="">None</option>
+              <option value="">{t("None")}</option>
               {goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
             </Select>
           )}
         </Field>
-        <Field label="Project (optional)">
+        <Field label={t("Project (optional)")}>
           {(id) => (
             <Select id={id} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">None</option>
+              <option value="">{t("None")}</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
             </Select>
           )}
         </Field>
       </div>
-      <Field label="Notes">
+      <Field label={t("Notes")}>
         {(id) => <Textarea id={id} value={description} onChange={(e) => setDescription(e.target.value)} />}
       </Field>
     </Modal>

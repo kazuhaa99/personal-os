@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     # "Authorization: Bearer <token>". Strongly recommended if the API is reachable
     # from anything other than localhost.
     api_token: str | None = Field(default=None)
+    # Login for the web UI. Change these (POS_AUTH_USERNAME / POS_AUTH_PASSWORD)
+    # before exposing the app anywhere beyond your own machine.
+    auth_enabled: bool = True
+    auth_username: str = "admin"
+    auth_password: str = "adminuser123"
+    # Signs session cookies. If unset, a random key is generated and kept in
+    # backend/.secret_key so sessions survive restarts.
+    secret_key: str | None = Field(default=None)
+    session_days: int = 30
+    # Set to true when served over HTTPS so the session cookie is never sent in clear.
+    cookie_secure: bool = False
     # Default timezone used until the owner changes it in Settings.
     default_timezone: str = "Asia/Almaty"
     log_level: str = "INFO"

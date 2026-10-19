@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { averageColor, clearWallpaper, loadWallpaper, prepareImage, saveWallpaper } from "./wallpaperStore";
 
 export type ThemeMode = "system" | "light" | "dark";
-export type WallpaperId = "alpine" | "lake" | "ocean" | "night" | "none";
+export type WallpaperId = "alpine" | "lake" | "ocean" | "night" | "none" | "custom";
 
 export const WALLPAPERS: { id: WallpaperId; label: string; src?: string; color: string }[] = [
   { id: "alpine", label: "Alpine dusk", src: "/media/peaks.jpg", color: "#50747a" },
@@ -11,12 +12,20 @@ export const WALLPAPERS: { id: WallpaperId; label: string; src?: string; color: 
   { id: "none", label: "Plain", color: "transparent" },
 ];
 
+export interface CustomWallpaper { src: string; color: string }
+
 interface ThemeState {
   mode: ThemeMode;
   resolved: "light" | "dark";
   wallpaper: WallpaperId;
+  /** The uploaded photo, if any (object URL). */
+  custom: CustomWallpaper | null;
+  /** What to actually paint: the selected wallpaper resolved to an image + colour. */
+  active: { src?: string; color: string };
   setMode: (m: ThemeMode) => void;
   setWallpaper: (w: WallpaperId) => void;
+  uploadWallpaper: (file: File) => Promise<void>;
+  removeCustomWallpaper: () => Promise<void>;
   toggle: () => void;
 }
 
@@ -39,7 +48,8 @@ const prefersDark = () => typeof window !== "undefined" && window.matchMedia?.("
 /** Appearance (system / light / dark) and wallpaper, remembered per browser. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => read("pos.theme", "system", ["system", "light", "dark"]));
-  const [wallpaper, setWallpaperState] = useState<WallpaperId>(() => read("pos.wallpaper", "lake", WALLPAPERS.map((w) => w.id)));
+  const [wallpaper, setWallpaperState] = useState<WallpaperId>(() => read("pos.wallpaper", "lake", [...WALLPAPERS.map((w) => w.id), "custom"]));
+  const [custom, setCustom] = useState<CustomWallpaper | null>(null);
   const [systemDark, setSystemDark] = useState(prefersDark);
 
   useEffect(() => {
@@ -58,9 +68,45 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setMode = useCallback((m: ThemeMode) => { setModeState(m); write("pos.theme", m); }, []);
   const setWallpaper = useCallback((w: WallpaperId) => { setWallpaperState(w); write("pos.wallpaper", w); }, []);
+
+  // Restore the uploaded photo from IndexedDB.
+  useEffect(() => {
+    let url: string | undefined;
+    let cancelled = false;
+    loadWallpaper().then(async (blob) => {
+      if (!blob || cancelled) return;
+      url = URL.createObjectURL(blob);
+      setCustom({ src: url, color: await averageColor(blob).catch(() => "#555") });
+    });
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
+  }, []);
+
+  const uploadWallpaper = useCallback(async (file: File) => {
+    const blob = await prepareImage(file);
+    await saveWallpaper(blob);
+    const color = await averageColor(blob).catch(() => "#555");
+    setCustom((prev) => { if (prev) URL.revokeObjectURL(prev.src); return { src: URL.createObjectURL(blob), color }; });
+    setWallpaper("custom");
+  }, [setWallpaper]);
+
+  const removeCustomWallpaper = useCallback(async () => {
+    await clearWallpaper();
+    setCustom((prev) => { if (prev) URL.revokeObjectURL(prev.src); return null; });
+    setWallpaperState((w) => { if (w === "custom") { write("pos.wallpaper", "lake"); return "lake"; } return w; });
+  }, []);
+
+  const active = useMemo(() => {
+    if (wallpaper === "custom") return custom ?? { src: undefined, color: "transparent" };
+    const wp = WALLPAPERS.find((w) => w.id === wallpaper) ?? WALLPAPERS[1];
+    return { src: wp.src, color: wp.color };
+  }, [wallpaper, custom]);
+
   const toggle = useCallback(() => setMode(resolved === "dark" ? "light" : "dark"), [resolved, setMode]);
 
-  const value = useMemo(() => ({ mode, resolved, wallpaper, setMode, setWallpaper, toggle }), [mode, resolved, wallpaper, setMode, setWallpaper, toggle]);
+  const value = useMemo(
+    () => ({ mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle }),
+    [mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

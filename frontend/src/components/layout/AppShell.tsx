@@ -1,28 +1,30 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeftRight, BarChart3, CalendarClock, Check, CheckSquare, ChevronDown, Command, CreditCard, Flame, Landmark, LayoutDashboard, Menu, Monitor,
+  ArrowLeftRight, BarChart3, CalendarClock, Check, CheckSquare, ChevronDown, Command, CreditCard, Flame, Landmark, Languages, LayoutDashboard, LogOut, Menu, Monitor,
   Moon, PanelLeftClose, PanelLeftOpen, PiggyBank, Plus, Search, Settings, Sun, Target, X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { api } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useAccounts } from "@/lib/queries";
-import { useTheme, WALLPAPERS } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import type { Dashboard } from "@/lib/types";
 import { Button, cn } from "@/components/ui/primitives";
+import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
 import { useQuickActions } from "./QuickActions";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; badge?: (d?: Dashboard) => ReactNode };
+// Labels stay in English here and are translated at render time (t() must not run at import).
+type NavItem = { to: string; label: string; short?: string; icon: typeof LayoutDashboard; end?: boolean; badge?: (d?: Dashboard) => ReactNode };
 
 const PERSONAL: NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/tasks", label: "Tasks", icon: CheckSquare, badge: (d) => (d ? d.tasks.counts.today + d.tasks.counts.overdue || null : null) },
-  { to: "/goals", label: "Goals & Projects", icon: Target, badge: (d) => d?.goals.length || null },
+  { to: "/goals", label: "Goals & Projects", short: "Goals", icon: Target, badge: (d) => d?.goals.length || null },
   { to: "/habits", label: "Habits", icon: Flame, badge: (d) => (d && d.habits.scheduled_today ? `${d.habits.done_today}/${d.habits.scheduled_today}` : null) },
 ];
 const MONEY: NavItem[] = [
@@ -50,8 +52,7 @@ const TITLES: [string, string, string][] = [
 // ---------------------------------------------------------------- wallpaper
 
 function Wallpaper() {
-  const { wallpaper, resolved } = useTheme();
-  const wp = WALLPAPERS.find((w) => w.id === wallpaper) ?? WALLPAPERS[0];
+  const { active: wp, resolved } = useTheme();
   const [loaded, setLoaded] = useState(false);
   useEffect(() => setLoaded(false), [wp.src]);
   return (
@@ -82,7 +83,7 @@ function SideLink({ item, data, onNavigate }: { item: NavItem; data?: Dashboard;
         <>
           {isActive && <motion.span layoutId="side-active" className="absolute inset-0 rounded-[8px] bg-fill/[0.09] shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4)]" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}
           <Icon className="relative h-[17px] w-[17px] text-accent" strokeWidth={1.8} />
-          <span className="relative flex-1 truncate">{label}</span>
+          <span className="relative flex-1 truncate">{t(label)}</span>
           {b !== null && b !== undefined && <span className="relative text-xs text-ink-3 tnum">{b}</span>}
         </>
       )}
@@ -100,20 +101,20 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
       <div className="flex h-14 items-center gap-2.5 px-2">
         <div className="h-7 w-7 rounded-[8px] grid place-items-center text-white text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(10_112_240/0.35)]" style={{ background: "linear-gradient(145deg, #4aa3ff, #0a62e0)" }}>P</div>
         <span className="flex-1 text-[15px] font-semibold tracking-tight">Personal OS</span>
-        {onCollapse && <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Hide sidebar" onClick={onCollapse}><PanelLeftClose className="h-4 w-4" /></Button>}
+        {onCollapse && <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t("Hide sidebar")} onClick={onCollapse}><PanelLeftClose className="h-4 w-4" /></Button>}
       </div>
-      <nav className="flex-1 overflow-y-auto space-y-4 pt-1" aria-label="Main">
+      <nav className="flex-1 overflow-y-auto space-y-4 pt-1" aria-label={t("Main")}>
         <div className="space-y-0.5">
-          <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">Personal</p>
+          <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">{t("Personal")}</p>
           {PERSONAL.map((i) => <SideLink key={i.to} item={i} data={data} onNavigate={onNavigate} />)}
         </div>
         <div className="space-y-0.5">
-          <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">Money</p>
+          <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">{t("Money")}</p>
           {MONEY.map((i) => <SideLink key={i.to} item={i} data={data} onNavigate={onNavigate} />)}
         </div>
         {active.length > 0 && (
           <div>
-            <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">Balances</p>
+            <p className="px-2.5 pb-1 text-xs font-semibold text-ink-3">{t("Balances")}</p>
             {active.slice(0, 6).map((a) => (
               <Link key={a.id} to={`/finances/transactions?account_id=${a.id}`} onClick={onNavigate} className="flex items-center justify-between gap-2 px-2.5 py-1 rounded-[8px] text-[13px] hover:bg-fill/[0.05]">
                 <span className="truncate text-ink-2">{a.name}</span>
@@ -126,12 +127,25 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
       <div className="pt-2 space-y-1.5">
         {demo?.loaded && (
           <Link to="/settings" onClick={onNavigate} className="block mx-1 rounded-[8px] border border-demo/30 bg-demo/10 px-2.5 py-1.5 text-xs text-demo">
-            <b>Demo data loaded</b> — examples, not your finances.
+            <b>{t("Demo data loaded")}</b> — {t("examples, not your finances.")}
           </Link>
         )}
         <SideLink item={{ to: "/settings", label: "Settings", icon: Settings }} onNavigate={onNavigate} />
+        <SignOutRow />
       </div>
     </div>
+  );
+}
+
+function SignOutRow() {
+  const { username, logout } = useAuth();
+  return (
+    <button type="button" onClick={() => void logout()}
+      className="flex w-full items-center gap-2.5 h-8 px-2.5 rounded-[8px] text-[13.5px] text-ink-2 hover:bg-fill/[0.05] transition-colors">
+      <LogOut className="h-[17px] w-[17px] text-ink-3" strokeWidth={1.8} />
+      <span className="flex-1 truncate text-left">{t("Sign out")}</span>
+      {username && <span className="truncate max-w-[45%] text-xs text-ink-3">{username}</span>}
+    </button>
   );
 }
 
@@ -146,13 +160,33 @@ function ThemeMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Appearance">{resolved === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}</Button>
+        <Button variant="ghost" size="icon" aria-label={t("Appearance")}>{resolved === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}</Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="end" sideOffset={8} className={menuContent}>
           {options.map(({ v, label, icon: Icon }) => (
             <DropdownMenu.Item key={v} className={menuItem} onSelect={() => setMode(v)}>
-              <Icon className="h-4 w-4" /> <span className="flex-1">{label}</span> {mode === v && <Check className="h-4 w-4" />}
+              <Icon className="h-4 w-4" /> <span className="flex-1">{t(label)}</span> {mode === v && <Check className="h-4 w-4" />}
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function LanguageMenu() {
+  const { lang, setLang } = useLang();
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <Button variant="ghost" size="icon" aria-label={t("Language")}><Languages className="h-4 w-4" /></Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={8} className={menuContent}>
+          {LANGUAGES.map((l) => (
+            <DropdownMenu.Item key={l.id} className={menuItem} onSelect={() => setLang(l.id)}>
+              <span className="w-5 text-center text-xs font-semibold opacity-70">{l.short}</span> <span className="flex-1">{l.label}</span> {lang === l.id && <Check className="h-4 w-4" />}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>
@@ -167,19 +201,19 @@ function NewMenu() {
   return (
     <div className="flex">
       <Button variant="primary" size="sm" className="h-8 rounded-r-none px-3" onClick={() => qa.newTransaction()}>
-        <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Transaction</span>
+        <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t("New Transaction")}</span>
       </Button>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5" aria-label="More create options"><ChevronDown className="h-4 w-4" /></Button>
+          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5" aria-label={t("More create options")}><ChevronDown className="h-4 w-4" /></Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="end" sideOffset={8} className={menuContent}>
-            <DropdownMenu.Item className={menuItem} onSelect={() => qa.newTransaction()}><ArrowLeftRight className="h-4 w-4" /><span className="flex-1">Transaction</span><kbd className="text-xs opacity-70">T</kbd></DropdownMenu.Item>
-            <DropdownMenu.Item className={menuItem} onSelect={() => qa.newTask()}><CheckSquare className="h-4 w-4" /><span className="flex-1">Task</span><kbd className="text-xs opacity-70">N</kbd></DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItem} onSelect={() => qa.newTransaction()}><ArrowLeftRight className="h-4 w-4" /><span className="flex-1">{t("Transaction")}</span><kbd className="text-xs opacity-70">T</kbd></DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItem} onSelect={() => qa.newTask()}><CheckSquare className="h-4 w-4" /><span className="flex-1">{t("Task")}</span><kbd className="text-xs opacity-70">N</kbd></DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-line/10" />
-            <DropdownMenu.Item className={menuItem} onSelect={() => navigate("/goals?new=1")}><Target className="h-4 w-4" />Goal</DropdownMenu.Item>
-            <DropdownMenu.Item className={menuItem} onSelect={() => navigate("/habits?new=1")}><Flame className="h-4 w-4" />Habit</DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItem} onSelect={() => navigate("/goals?new=1")}><Target className="h-4 w-4" />{t("Goal")}</DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItem} onSelect={() => navigate("/habits?new=1")}><Flame className="h-4 w-4" />{t("Habit")}</DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
@@ -206,9 +240,9 @@ export function AppShell() {
   }, []);
 
   const [title, subtitle] = (() => {
-    if (location.pathname === "/") return ["Overview", format(new Date(), "EEEE, d MMMM yyyy")];
-    const t = TITLES.find(([p]) => location.pathname.startsWith(p));
-    return t ? [t[1], t[2]] : ["Personal OS", ""];
+    if (location.pathname === "/") return [t("Overview"), format(new Date(), "PPPP")];
+    const hit = TITLES.find(([p]) => location.pathname.startsWith(p));
+    return hit ? [t(hit[1]), t(hit[2])] : ["Personal OS", ""];
   })();
 
   return (
@@ -227,8 +261,8 @@ export function AppShell() {
 
         <div className="relative flex-1 min-w-0 flex flex-col bg-surface/55 backdrop-blur-2xl">
           <header className="flex h-14 shrink-0 items-center gap-2 px-3 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
-            <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
-            {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label="Show sidebar" onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
+            <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t("Open menu")} onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
+            {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={t("Show sidebar")} onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
             <div className="min-w-0 flex-1 pl-1">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div key={title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}>
@@ -238,10 +272,11 @@ export function AppShell() {
               </AnimatePresence>
             </div>
             <button onClick={() => setPalette(true)} className="field hidden md:flex items-center gap-2 h-8 w-[260px] rounded-lg px-2.5 text-[13px] text-ink-3 hover:bg-fill/[0.07] transition-colors">
-              <Search className="h-3.5 w-3.5" /> <span className="flex-1 text-left">Search or run a command</span>
+              <Search className="h-3.5 w-3.5" /> <span className="flex-1 text-left">{t("Search or run a command")}</span>
               <kbd className="inline-flex items-center gap-0.5 rounded bg-surface px-1.5 py-0.5 text-[11px] border hairline"><Command className="h-3 w-3" />K</kbd>
             </button>
-            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Search" onClick={() => setPalette(true)}><Search className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("Search")} onClick={() => setPalette(true)}><Search className="h-4 w-4" /></Button>
+            <LanguageMenu />
             <ThemeMenu />
             <NewMenu />
           </header>
@@ -266,7 +301,7 @@ export function AppShell() {
             <motion.div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} />
             <motion.aside className="absolute left-2 top-2 bottom-2 w-[272px] rounded-2xl mat-popover overflow-hidden"
               initial={{ x: "-110%" }} animate={{ x: 0 }} exit={{ x: "-110%" }} transition={{ type: "spring", stiffness: 380, damping: 36 }}>
-              <Button variant="ghost" size="icon" className="absolute right-2 top-3 z-10" aria-label="Close menu" onClick={() => setMobileOpen(false)}><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="absolute right-2 top-3 z-10" aria-label={t("Close menu")} onClick={() => setMobileOpen(false)}><X className="h-4 w-4" /></Button>
               <SidebarContent onNavigate={() => setMobileOpen(false)} />
             </motion.aside>
           </div>
@@ -274,11 +309,11 @@ export function AppShell() {
       </AnimatePresence>
 
       {/* Mobile tab bar: floating glass */}
-      <nav className="lg:hidden fixed bottom-3 inset-x-3 z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label="Primary">
-        {[PERSONAL[0], PERSONAL[1], { to: "/finances/transactions", label: "Money", icon: ArrowLeftRight }, PERSONAL[3], { to: "/analytics", label: "Analytics", icon: BarChart3 }].map(({ to, label, icon: Icon, end }) => (
+      <nav className="lg:hidden fixed bottom-3 inset-x-3 z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label={t("Primary")}>
+        {([PERSONAL[0], PERSONAL[1], { to: "/finances/transactions", label: "Money", icon: ArrowLeftRight }, PERSONAL[3], { to: "/analytics", label: "Analytics", icon: BarChart3 }] as NavItem[]).map(({ to, label, short, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-accent bg-fill/[0.06]" : "text-ink-2")}>
             <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
-            {label.split(" ")[0]}
+            {t(short ?? label)}
           </NavLink>
         ))}
       </nav>

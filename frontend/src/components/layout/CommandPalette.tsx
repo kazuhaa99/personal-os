@@ -1,19 +1,22 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowLeftRight, BarChart3, CalendarClock, CheckSquare, CornerDownLeft, CreditCard, Flame, Landmark, LayoutDashboard, Moon, PiggyBank, Plus, Search,
+  ArrowLeftRight, BarChart3, CalendarClock, CheckSquare, CornerDownLeft, CreditCard, Flame, Landmark, Languages, LayoutDashboard, Moon, PiggyBank, Plus, Search,
   Settings, Sun, Target,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { fmtDate, formatMoney } from "@/lib/format";
+import { LANGUAGES, t, t as tr, useLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import type { Task, TxPage } from "@/lib/types";
 import { cn } from "@/components/ui/primitives";
 import { useQuickActions } from "./QuickActions";
 
 interface Cmd { id: string; group: string; label: string; hint?: string; icon: ReactNode; run: () => void }
+
+const TASK_STATUS: Record<Task["status"], string> = { todo: "To do", in_progress: "In progress", done: "Done" };
 
 function useDebounced<T>(value: T, ms = 180) {
   const [v, setV] = useState(value);
@@ -26,6 +29,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const navigate = useNavigate();
   const qa = useQuickActions();
   const theme = useTheme();
+  const { lang, setLang } = useLang();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
@@ -41,23 +45,24 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     const go = (to: string) => () => navigate(to);
     const i = (C: typeof Search) => <C className="h-4 w-4" />;
     const base: Cmd[] = [
-      { id: "new-tx", group: "Create", label: "New transaction", hint: "T", icon: i(Plus), run: () => qa.newTransaction() },
-      { id: "new-task", group: "Create", label: "New task", hint: "N", icon: i(Plus), run: () => qa.newTask() },
-      { id: "new-goal", group: "Create", label: "New goal", icon: i(Target), run: go("/goals?new=1") },
-      { id: "new-habit", group: "Create", label: "New habit", icon: i(Flame), run: go("/habits?new=1") },
-      { id: "go-home", group: "Go to", label: "Overview", icon: i(LayoutDashboard), run: go("/") },
-      { id: "go-tasks", group: "Go to", label: "Tasks", icon: i(CheckSquare), run: go("/tasks") },
-      { id: "go-overdue", group: "Go to", label: "Overdue tasks", icon: i(CheckSquare), run: go("/tasks?view=overdue") },
-      { id: "go-goals", group: "Go to", label: "Goals & Projects", icon: i(Target), run: go("/goals") },
-      { id: "go-habits", group: "Go to", label: "Habits", icon: i(Flame), run: go("/habits") },
-      { id: "go-tx", group: "Go to", label: "Transactions", icon: i(ArrowLeftRight), run: go("/finances/transactions") },
-      { id: "go-acc", group: "Go to", label: "Accounts", icon: i(Landmark), run: go("/finances/accounts") },
-      { id: "go-bud", group: "Go to", label: "Budgets", icon: i(PiggyBank), run: go("/finances/budgets") },
-      { id: "go-rec", group: "Go to", label: "Recurring payments", icon: i(CalendarClock), run: go("/finances/recurring") },
-      { id: "go-inst", group: "Go to", label: "Installments", icon: i(CreditCard), run: go("/finances/installments") },
-      { id: "go-an", group: "Go to", label: "Analytics", icon: i(BarChart3), run: go("/analytics") },
-      { id: "go-set", group: "Go to", label: "Settings", icon: i(Settings), run: go("/settings") },
-      { id: "theme", group: "Appearance", label: theme.resolved === "dark" ? "Switch to light appearance" : "Switch to dark appearance", icon: theme.resolved === "dark" ? i(Sun) : i(Moon), run: theme.toggle },
+      { id: "new-tx", group: t("Create"), label: t("New transaction"), hint: "T", icon: i(Plus), run: () => qa.newTransaction() },
+      { id: "new-task", group: t("Create"), label: t("New task"), hint: "N", icon: i(Plus), run: () => qa.newTask() },
+      { id: "new-goal", group: t("Create"), label: t("New goal"), icon: i(Target), run: go("/goals?new=1") },
+      { id: "new-habit", group: t("Create"), label: t("New habit"), icon: i(Flame), run: go("/habits?new=1") },
+      { id: "go-home", group: t("Go to"), label: t("Overview"), icon: i(LayoutDashboard), run: go("/") },
+      { id: "go-tasks", group: t("Go to"), label: t("Tasks"), icon: i(CheckSquare), run: go("/tasks") },
+      { id: "go-overdue", group: t("Go to"), label: t("Overdue tasks"), icon: i(CheckSquare), run: go("/tasks?view=overdue") },
+      { id: "go-goals", group: t("Go to"), label: t("Goals & Projects"), icon: i(Target), run: go("/goals") },
+      { id: "go-habits", group: t("Go to"), label: t("Habits"), icon: i(Flame), run: go("/habits") },
+      { id: "go-tx", group: t("Go to"), label: t("Transactions"), icon: i(ArrowLeftRight), run: go("/finances/transactions") },
+      { id: "go-acc", group: t("Go to"), label: t("Accounts"), icon: i(Landmark), run: go("/finances/accounts") },
+      { id: "go-bud", group: t("Go to"), label: t("Budgets"), icon: i(PiggyBank), run: go("/finances/budgets") },
+      { id: "go-rec", group: t("Go to"), label: t("Recurring payments"), icon: i(CalendarClock), run: go("/finances/recurring") },
+      { id: "go-inst", group: t("Go to"), label: t("Installments"), icon: i(CreditCard), run: go("/finances/installments") },
+      { id: "go-an", group: t("Go to"), label: t("Analytics"), icon: i(BarChart3), run: go("/analytics") },
+      { id: "go-set", group: t("Go to"), label: t("Settings"), icon: i(Settings), run: go("/settings") },
+      { id: "theme", group: t("Appearance"), label: theme.resolved === "dark" ? t("Switch to light appearance") : t("Switch to dark appearance"), icon: theme.resolved === "dark" ? i(Sun) : i(Moon), run: theme.toggle },
+      ...LANGUAGES.map((l): Cmd => ({ id: `lang-${l.id}`, group: t("Language"), label: l.label, hint: lang === l.id ? "✓" : l.short, icon: i(Languages), run: () => setLang(l.id) })),
     ];
     const s = q.trim().toLowerCase();
     const filtered = s ? base.filter((c) => c.label.toLowerCase().includes(s)) : base;
@@ -65,17 +70,17 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     if (searching) {
       for (const t of txs.data?.items ?? []) {
         results.push({
-          id: `tx-${t.id}`, group: "Transactions", label: t.description || t.payee || t.category?.name || "Transfer",
+          id: `tx-${t.id}`, group: tr("Transactions"), label: t.description || t.payee || (t.category ? tr(t.category.name) : null) || tr("Transfer"),
           hint: `${fmtDate(t.date, "d MMM")} · ${formatMoney(t.type === "expense" ? `-${t.amount}` : t.amount, t.currency, { sign: t.type !== "transfer" })}`,
           icon: <ArrowLeftRight className="h-4 w-4" />, run: () => qa.editTransaction(t),
         });
       }
       for (const t of (tasks.data ?? []).slice(0, 5)) {
-        results.push({ id: `task-${t.id}`, group: "Tasks", label: t.title, hint: t.due_date ? fmtDate(t.due_date, "d MMM") : t.status, icon: <CheckSquare className="h-4 w-4" />, run: () => qa.editTask(t) });
+        results.push({ id: `task-${t.id}`, group: tr("Tasks"), label: t.title, hint: t.due_date ? fmtDate(t.due_date, "d MMM") : tr(TASK_STATUS[t.status]), icon: <CheckSquare className="h-4 w-4" />, run: () => qa.editTask(t) });
       }
     }
     return [...filtered, ...results];
-  }, [q, searching, txs.data, tasks.data, navigate, qa, theme]);
+  }, [q, searching, txs.data, tasks.data, navigate, qa, theme, lang, setLang]);
 
   useEffect(() => setActive(0), [q]);
   useEffect(() => { listRef.current?.querySelector(`[data-idx="${active}"]`)?.scrollIntoView({ block: "nearest" }); }, [active]);
@@ -97,17 +102,17 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
             if (e.key === "Enter" && commands[active]) { e.preventDefault(); run(commands[active]); }
           }}>
-          <Dialog.Title className="sr-only">Command palette</Dialog.Title>
-          <Dialog.Description className="sr-only">Search transactions and tasks, navigate, or run a command.</Dialog.Description>
+          <Dialog.Title className="sr-only">{t("Command palette")}</Dialog.Title>
+          <Dialog.Description className="sr-only">{t("Search transactions and tasks, navigate, or run a command.")}</Dialog.Description>
           <div className="flex items-center gap-3 h-14 px-4 border-b hairline">
             <Search className="h-[18px] w-[18px] text-ink-3" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search transactions, tasks, or type a command…"
-              className="flex-1 bg-transparent text-[17px] outline-none focus-visible:outline-none placeholder:text-ink-3" aria-label="Command or search" />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Search transactions, tasks, or type a command…")}
+              className="flex-1 bg-transparent text-[17px] outline-none focus-visible:outline-none placeholder:text-ink-3" aria-label={t("Command or search")} />
             <kbd className="rounded bg-fill/[0.06] px-1.5 py-0.5 text-[11px] text-ink-3">esc</kbd>
           </div>
           <ul ref={listRef} className="max-h-[52vh] overflow-y-auto p-1.5" role="listbox">
             {commands.length === 0 && (
-              <li className="px-4 py-10 text-center text-sm text-ink-3">{searching && (txs.isFetching || tasks.isFetching) ? "Searching…" : `No results for “${q}”`}</li>
+              <li className="px-4 py-10 text-center text-sm text-ink-3">{searching && (txs.isFetching || tasks.isFetching) ? t("Searching…") : t("No results for “{q}”", { q })}</li>
             )}
             {commands.map((c, idx) => {
               const header = c.group !== lastGroup ? c.group : null;
@@ -125,7 +130,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 </li>
               );
             })}
-            {searching && (txs.isFetching || tasks.isFetching) && commands.length > 0 && <li className="px-3 py-2 text-xs text-ink-3">Searching…</li>}
+            {searching && (txs.isFetching || tasks.isFetching) && commands.length > 0 && <li className="px-3 py-2 text-xs text-ink-3">{t("Searching…")}</li>}
           </ul>
         </Dialog.Content>
       </Dialog.Portal>

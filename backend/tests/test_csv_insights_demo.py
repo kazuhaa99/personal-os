@@ -148,3 +148,18 @@ def test_demo_data_is_labelled_and_removable_without_touching_real_data(api):
     assert api.ok(api.c.get("/api/installments")) == []
     assert api.ok(api.c.get("/api/habits")) == [] and api.ok(api.c.get("/api/goals")) == []
     assert api.balance(real) == "9.00"
+
+
+def test_insights_follow_accept_language(api):
+    from datetime import date, timedelta
+
+    api.ok(api.c.post("/api/tasks", json={"title": "Old one", "due_date": str(date.today() - timedelta(days=3))}))
+    def overdue(lang):
+        items = api.ok(api.c.get("/api/insights", headers={"Accept-Language": lang}))
+        return next(i for i in items if i["category"] == "tasks")
+    assert overdue("en")["title"] == "1 overdue task"
+    assert overdue("ru-RU,ru;q=0.9")["title"] == "1 просроченная задача"
+    assert overdue("ko")["title"] == "기한 지난 할 일 1개"
+    assert "Old one" in overdue("ru")["explanation"]
+    dash = api.ok(api.c.get("/api/dashboard", headers={"Accept-Language": "ko"}))
+    assert any(i["title"] == "기한 지난 할 일 1개" for i in dash["insights"])
