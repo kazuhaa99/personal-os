@@ -1,0 +1,3 @@
+# Personal OS is a private, single-user app: nothing here should be indexed.
+User-agent: *
+Disallow: /

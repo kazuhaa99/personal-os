@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#0a0a0e" />
+  <title>Personal OS · Offline</title>
+  <link rel="icon" href="/icons/icon-192.png" />
+  <style>
+    :root { --bg: #e4e6ec; --card: rgb(255 255 255 / 0.7); --ink: #111318; --ink2: #5b606b; --accent: #0a70f0; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0e; --card: rgb(255 255 255 / 0.06); --ink: #f2f3f5; --ink2: #9aa0ab; --accent: #409cff; } }
+    :root[data-theme="light"] { --bg: #e4e6ec; --card: rgb(255 255 255 / 0.7); --ink: #111318; --ink2: #5b606b; --accent: #0a70f0; }
+    :root[data-theme="dark"] { --bg: #0a0a0e; --card: rgb(255 255 255 / 0.06); --ink: #f2f3f5; --ink2: #9aa0ab; --accent: #409cff; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+    main { width: 100%; max-width: 360px; text-align: center; background: var(--card); border-radius: 20px; padding: 32px 24px; }
+    img { width: 56px; height: 56px; border-radius: 16px; }
+    h1 { font-size: 20px; margin: 16px 0 6px; }
+    p { margin: 0 0 20px; color: var(--ink2); }
+    button { appearance: none; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; padding: 11px 20px; min-height: 44px; cursor: pointer; }
+    button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 2px; }
+  </style>
+  <script>
+    try {
+      var m = localStorage.getItem("pos.theme");
+      if (m === "light" || m === "dark") document.documentElement.dataset.theme = m;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="" />
+    <h1 id="title">You're offline</h1>
+    <p id="text">Personal OS needs a connection to show your data. Nothing is stored offline.</p>
+    <button id="retry" type="button">Try again</button>
+  </main>
+  <script>
+    var copy = {
+      ru: ["Нет подключения", "Personal OS нужна сеть, чтобы показать ваши данные. Офлайн ничего не хранится.", "Повторить"],
+      ko: ["오프라인 상태입니다", "데이터를 보려면 Personal OS에 인터넷 연결이 필요합니다. 오프라인에는 아무것도 저장되지 않습니다.", "다시 시도"],
+    };
+    try {
+      var lang = localStorage.getItem("pos.lang");
+      if (copy[lang]) {
+        document.documentElement.lang = lang;
+        document.getElementById("title").textContent = copy[lang][0];
+        document.getElementById("text").textContent = copy[lang][1];
+        document.getElementById("retry").textContent = copy[lang][2];
+      }
+    } catch (e) {}
+    document.getElementById("retry").addEventListener("click", function () { location.reload(); });
+    window.addEventListener("online", function () { location.reload(); });
+  </script>
+</body>
+</html>

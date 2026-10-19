@@ -25,7 +25,8 @@ export function Modal({ open, onOpenChange, title, description, children, footer
           className={cn(
             "fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-[12vh] sm:-translate-x-1/2",
             "dlg-content w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl mat-popover",
-            "max-h-[88vh] flex flex-col",
+            // Bottom sheet on phones: keep the actions above the home indicator.
+            "max-h-[88dvh] flex flex-col pb-[var(--sab)] sm:pb-0",
             wide && "sm:max-w-2xl",
           )}
           aria-describedby={description ? undefined : undefined}
