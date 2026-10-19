@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
-import { ArrowRight, CalendarClock, Check, CheckSquare, Flame, Plus, Target, Wallet } from "lucide-react";
+import { format, parseISO, subDays } from "date-fns";
+import { motion } from "framer-motion";
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckSquare, Flame, Plus, Target } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { api } from "@/lib/api";
-import { formatMoney, relativeDay, ACCOUNT_TYPE_LABEL } from "@/lib/format";
+import { formatMoney, monthLabel, relativeDay } from "@/lib/format";
+import { goalArt } from "@/lib/goalArt";
 import { useAction } from "@/lib/queries";
-import type { Dashboard, Habit } from "@/lib/types";
-import { Badge, Button, Card, CardHeader, cn, DemoBadge, EmptyState, ErrorBlock, LoadingBlock, MoneyText, Progress } from "@/components/ui/primitives";
+import type { AnalyticsSummary, Dashboard, Habit } from "@/lib/types";
+import { AXIS, ChartTooltip, SERIES } from "@/components/charts/ChartCard";
+import { Button, Card, CardHeader, cn, DemoBadge, EmptyState, ErrorBlock, GlassCard, LoadingBlock, MoneyText, Progress } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { InsightList } from "./InsightList";
@@ -18,199 +22,219 @@ function greeting(hour: number) {
   return "Good evening";
 }
 
-function HabitChip({ habit, today }: { habit: Habit; today: string }) {
-  const toggle = useAction(() => api.put(`/habits/${habit.id}/completions`, { date: today, done: !habit.done_today }));
+const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+
+function Kpi({ label, value, sub, to, big, tone, children }: { label: string; value: string; sub?: string; to: string; big?: boolean; tone?: "good" | "bad"; children?: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={() => toggle.mutate(undefined)}
-      disabled={toggle.isPending}
-      aria-pressed={habit.done_today}
-      className={cn(
-        "flex items-center gap-2 rounded-lg border px-3 h-9 text-sm transition-colors",
-        habit.done_today ? "border-transparent bg-white/[0.08] text-ink" : "hairline text-ink-2 hover:bg-white/[0.04]",
-      )}
-    >
-      <span className="h-4 w-4 rounded-full grid place-items-center" style={{ background: habit.done_today ? habit.color : "transparent", boxShadow: `inset 0 0 0 1.5px ${habit.color}` }}>
-        {habit.done_today && <Check className="h-2.5 w-2.5 text-black" strokeWidth={3} />}
-      </span>
-      <span className="truncate max-w-[12rem]">{habit.name.replace(/^Demo · /, "")}</span>
-      {habit.current_streak > 1 && <span className="text-2xs text-ink-3 tnum">{habit.current_streak}d</span>}
-    </button>
+    <Link to={to} className={cn("group relative z-[2] block px-5 py-4 transition-colors hover:bg-white/[0.08] border-line/[0.08] max-lg:border-b", big && "col-span-2 lg:col-span-1")}>
+      <p className="text-xs font-medium text-ink-3">{label}</p>
+      <p className={cn("mt-1 font-semibold tracking-tight tnum", big ? "text-[30px] leading-9 lg:text-[32px]" : "text-[22px] leading-7", tone === "good" && "text-good", tone === "bad" && "text-bad")}>{value}</p>
+      {children}
+      {sub && <p className="mt-1 text-xs text-ink-3">{sub}</p>}
+    </Link>
+  );
+}
+
+function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
+  const days = Array.from({ length: 7 }, (_, i) => format(subDays(parseISO(today), 6 - i), "yyyy-MM-dd"));
+  const toggle = useAction(({ id, done }: { id: number; done: boolean }) => api.put(`/habits/${id}/completions`, { date: today, done }));
+  return (
+    <table className="w-full border-collapse text-[13.5px]">
+      <thead>
+        <tr>
+          <th />
+          {days.map((d) => <th key={d} className={cn("pb-1.5 text-xs font-semibold", d === today ? "text-accent" : "text-ink-3")}>{format(parseISO(d), "EEEEE")}</th>)}
+          <th className="pb-1.5 pl-2 text-right text-xs font-semibold text-ink-3">7 days</th>
+        </tr>
+      </thead>
+      <tbody>
+        {habits.map((h) => {
+          const done = new Set(h.completions);
+          return (
+            <tr key={h.id}>
+              <td className="pr-3 py-1 max-w-[10rem] truncate">{h.name.replace(/^Demo · /, "")}</td>
+              {days.map((d) => {
+                const on = done.has(d);
+                const isToday = d === today;
+                return (
+                  <td key={d} className="p-[3px]">
+                    <button
+                      disabled={!isToday || toggle.isPending}
+                      onClick={() => toggle.mutate({ id: h.id, done: !on })}
+                      aria-pressed={on}
+                      aria-label={`${h.name} ${isToday ? "today" : format(parseISO(d), "EEEE")}${on ? ", done" : ""}`}
+                      className={cn("block h-6 w-full min-w-[22px] rounded-[6px] transition-[background-color,transform] active:scale-90", !on && "bg-fill/[0.07]", isToday && "ring-[1.5px] ring-accent/70 cursor-pointer", !isToday && "cursor-default")}
+                      style={on ? { background: h.color } : undefined}
+                    />
+                  </td>
+                );
+              })}
+              <td className="pl-2 text-right text-xs text-ink-3 tnum">{h.week_rate ? `${Math.round(Number(h.week_rate))}%` : "—"}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
 export function OverviewPage() {
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["dashboard"], queryFn: () => api.get<Dashboard>("/dashboard") });
+  const { data: summary } = useQuery({ queryKey: ["analytics", "overview"], queryFn: () => api.get<AnalyticsSummary>("/analytics/summary"), staleTime: 30_000 });
   const qa = useQuickActions();
   if (isLoading) return <LoadingBlock />;
   if (error || !data) return <ErrorBlock error={error} onRetry={() => refetch()} />;
 
   const cur = data.primary_currency;
   const name = data.owner_name ? `, ${data.owner_name}` : "";
-  const cash = data.accounts.totals;
   const budgetUtil = data.budget.utilization ? Number(data.budget.utilization) : null;
-  const hasAccounts = data.accounts.items.length > 0;
   const scheduledHabits = data.habits.items.filter((h) => h.scheduled_today);
+  const flow = summary?.cash_flow.months.map((m) => ({ month: m.month, income: Number(m.income), expense: Number(m.expense) })) ?? [];
+  const hasFlow = (summary?.cash_flow.months_with_data ?? 0) > 0;
+  const cash = data.accounts.totals.find((t) => t.currency === cur) ?? data.accounts.totals[0];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="show">
+      <motion.div variants={rise} className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-ink-3">{format(parseISO(data.today), "EEEE, d MMMM")}</p>
-          <h1 className="text-2xl font-semibold tracking-tight mt-1">{greeting(new Date().getHours())}{name}</h1>
-          <p className="text-sm text-ink-3 mt-1">
+          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-tight">{greeting(new Date().getHours())}{name}</h2>
+          <p className="mt-1 text-sm text-ink-2">
             {data.tasks.counts.today + data.tasks.counts.overdue > 0
-              ? `${data.tasks.counts.today} task${data.tasks.counts.today === 1 ? "" : "s"} due today${data.tasks.counts.overdue ? `, ${data.tasks.counts.overdue} overdue` : ""}.`
-              : "Nothing due today."}{" "}
-            {data.habits.scheduled_today > 0 && `${data.habits.done_today}/${data.habits.scheduled_today} habits done.`}
+              ? `${data.tasks.counts.today} task${data.tasks.counts.today === 1 ? "" : "s"} due today${data.tasks.counts.overdue ? `, ${data.tasks.counts.overdue} overdue` : ""}`
+              : "Nothing due today"}
+            {data.habits.scheduled_today > 0 && ` · ${data.habits.done_today}/${data.habits.scheduled_today} habits`}
+            {data.insights.length > 0 && ` · ${data.insights.length} thing${data.insights.length === 1 ? "" : "s"} to look at`}
           </p>
         </div>
-      </div>
+        <div className="flex gap-2">
+          <Button onClick={() => qa.newTask()}><Plus className="h-4 w-4" /> Task</Button>
+          <Button variant="primary" onClick={() => qa.newTransaction()}><Plus className="h-4 w-4" /> Transaction</Button>
+        </div>
+      </motion.div>
 
-      {/* Money strip: one hero figure + the month in context */}
-      <Card className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-white/[0.06]">
-        <Link to="/finances/accounts" className="px-5 py-4 hover:bg-white/[0.02] transition-colors">
-          <p className="text-xs text-ink-3 flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5" /> Available in active accounts</p>
-          {cash.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-2">No accounts yet — <span className="text-accent">add one</span></p>
-          ) : (
-            cash.map((t) => <p key={t.currency} className="mt-1.5 text-3xl font-semibold tracking-tight tnum">{formatMoney(t.amount, t.currency)}</p>)
-          )}
-          <p className="text-2xs text-ink-3 mt-1">Sum of account balances, by currency. Not net worth.</p>
-        </Link>
-        <Link to="/analytics" className="px-5 py-4 hover:bg-white/[0.02]">
-          <p className="text-xs text-ink-3">{data.month.label} · income vs expenses</p>
-          <p className="mt-2 text-sm flex justify-between"><span className="text-ink-2">Income</span><MoneyText value={data.month.income} currency={cur} /></p>
-          <p className="mt-1 text-sm flex justify-between"><span className="text-ink-2">Expenses</span><MoneyText value={data.month.expense} currency={cur} /></p>
-          <p className="mt-1 text-sm flex justify-between border-t hairline pt-1"><span className="text-ink-2">Net cash flow</span><MoneyText value={data.month.net_cash_flow} currency={cur} signed colored /></p>
-        </Link>
-        <Link to="/finances/budgets" className="px-5 py-4 hover:bg-white/[0.02]">
-          <p className="text-xs text-ink-3">Budget used this month</p>
-          {budgetUtil === null ? (
-            <p className="mt-2 text-sm text-ink-2">No budgets set — <span className="text-accent">set limits</span></p>
-          ) : (
-            <>
-              <p className="mt-1.5 text-xl font-semibold tnum">{data.budget.utilization}%</p>
-              <Progress className="mt-2" value={budgetUtil} tone={budgetUtil > 100 ? "bad" : budgetUtil >= 85 ? "warn" : "accent"} label="Budget utilization" />
-              <p className="text-2xs text-ink-3 mt-1.5 tnum">{formatMoney(data.budget.total_spent, cur)} of {formatMoney(data.budget.total_limit, cur)}</p>
-            </>
-          )}
-        </Link>
-        <Link to="/finances/recurring" className="px-5 py-4 hover:bg-white/[0.02]">
-          <p className="text-xs text-ink-3">Expected outflows · next 30 days</p>
-          <p className="mt-1.5 text-xl font-semibold tnum">{formatMoney(data.expected_payments.total_expected_outflow_30d, cur)}</p>
-          <p className="text-2xs text-ink-3 mt-1">Projection from recurring rules & installments.</p>
-          {data.liabilities.map((l) => (
-            <p key={l.currency} className="text-2xs text-ink-2 mt-1.5">Outstanding installments: <span className="tnum">{formatMoney(l.amount, l.currency)}</span></p>
-          ))}
-        </Link>
-      </Card>
+      {/* Hero: the one Liquid Glass surface on the page */}
+      <motion.div variants={rise}>
+        <GlassCard className="grid grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr] divide-x divide-line/[0.08]">
+          <Kpi big label="Available in active accounts" to="/finances/accounts"
+            value={cash ? formatMoney(cash.amount, cash.currency) : "—"}
+            sub={data.accounts.totals.length > 1 ? `+ ${data.accounts.totals.filter((t) => t !== cash).map((t) => formatMoney(t.amount, t.currency)).join(", ")} · not net worth` : "Sum of balances · not net worth"} />
+          <Kpi label={`Income · ${format(parseISO(data.today), "MMM")}`} to="/analytics" value={formatMoney(data.month.income, cur)} />
+          <Kpi label="Expenses" to="/analytics" value={formatMoney(data.month.expense, cur)} />
+          <Kpi label="Net cash flow" to="/analytics" value={formatMoney(data.month.net_cash_flow, cur, { sign: true })} tone={data.month.net_cash_flow.startsWith("-") ? "bad" : "good"} sub="Transfers excluded" />
+          <Kpi label="Budget used" to="/finances/budgets" value={budgetUtil === null ? "No budgets" : `${data.budget.utilization}%`}
+            sub={budgetUtil === null ? "Set monthly limits" : `${formatMoney(data.budget.total_spent, cur)} of ${formatMoney(data.budget.total_limit, cur)}`}>
+            {budgetUtil !== null && <Progress className="mt-2" value={budgetUtil} tone={budgetUtil > 100 ? "bad" : budgetUtil >= 85 ? "warn" : "accent"} label="Budget utilization" />}
+          </Kpi>
+        </GlassCard>
+      </motion.div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-6">
-        <div className="space-y-6 min-w-0">
-          <Card>
-            <CardHeader title="Today" to="/tasks" subtitle={`${data.tasks.counts.done_today} completed today`}
+      <div className="grid gap-4 xl:grid-cols-3 [grid-template-areas:'today'_'flow'_'att'_'up'_'habits'_'goals'] xl:[grid-template-areas:'today_flow_flow'_'today_att_up'_'habits_habits_goals']">
+        <motion.div variants={rise} className="[grid-area:today] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Today" to="/tasks" subtitle={`${data.tasks.counts.done_today} done today`}
               action={<Button size="sm" variant="ghost" onClick={() => qa.newTask()}><Plus className="h-3.5 w-3.5" /> Add</Button>} />
             <div className="px-2 pb-2">
               {data.tasks.today.length === 0 ? (
                 <EmptyState className="py-6" icon={<CheckSquare className="h-5 w-5" />} title="A clear day" body="Nothing due today or overdue." />
-              ) : (
-                data.tasks.today.map((t) => <TaskRow key={t.id} task={t} today={data.today} compact />)
-              )}
+              ) : data.tasks.today.map((t) => <TaskRow key={t.id} task={t} today={data.today} compact />)}
               {data.tasks.upcoming.length > 0 && (
                 <>
-                  <p className="px-3 pt-3 pb-1 text-2xs uppercase tracking-wider text-ink-3">Next 7 days</p>
+                  <p className="px-3 pt-3 pb-1 text-xs font-semibold text-ink-3">Next 7 days</p>
                   {data.tasks.upcoming.map((t) => <TaskRow key={t.id} task={t} today={data.today} compact />)}
                 </>
               )}
             </div>
           </Card>
+        </motion.div>
 
-          <Card>
-            <CardHeader title="Habits" to="/habits" subtitle={scheduledHabits.length ? `${data.habits.done_today} of ${data.habits.scheduled_today} done today` : undefined} />
-            <div className="px-5 pb-4">
-              {data.habits.items.length === 0 ? (
-                <EmptyState className="py-4" icon={<Flame className="h-5 w-5" />} title="No habits yet" action={<Link to="/habits"><Button size="sm">Create a habit</Button></Link>} />
-              ) : scheduledHabits.length === 0 ? (
-                <p className="text-sm text-ink-3">No habits scheduled today.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">{scheduledHabits.map((h) => <HabitChip key={h.id} habit={h} today={data.today} />)}</div>
+        <motion.div variants={rise} className="[grid-area:flow] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Cash flow" to="/analytics" subtitle="Last 6 months · actual transactions"
+              action={hasFlow ? <span className="flex items-center gap-3 text-xs text-ink-3"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[0] }} />Income</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[1] }} />Expenses</span></span> : undefined} />
+            <div className="px-3 pb-3 h-[180px]">
+              {!hasFlow ? <EmptyState className="py-8" title="No cash flow yet" body="Income and expenses appear here as you record them." /> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={flow} barGap={2} barCategoryGap="30%">
+                    <XAxis dataKey="month" tickFormatter={(m) => monthLabel(m, "MMM")} stroke={AXIS} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{ fill: "rgb(var(--fill) / 0.05)" }} content={<ChartTooltip format={(v) => formatMoney(v.toFixed(2), cur)} labelFormat={(l) => monthLabel(l, "MMMM yyyy")} />} />
+                    <Bar dataKey="income" name="Income" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={22} />
+                    <Bar dataKey="expense" name="Expenses" fill={SERIES[1]} radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
               )}
             </div>
+            {hasFlow && <p className="px-5 pb-3 -mt-1 text-xs text-ink-3">Average spending {summary?.cash_flow.average_monthly_expense ? formatMoney(summary.cash_flow.average_monthly_expense, cur) : "—"} / month across months with data</p>}
           </Card>
+        </motion.div>
 
-          <Card>
-            <CardHeader title="Active goals" to="/goals" />
-            <div className="px-5 pb-4">
-              {data.goals.length === 0 ? (
-                <EmptyState className="py-4" icon={<Target className="h-5 w-5" />} title="No active goals" action={<Link to="/goals"><Button size="sm">Set a goal</Button></Link>} />
-              ) : (
-                <ul className="space-y-3.5">
-                  {data.goals.map((g) => (
-                    <li key={g.id}>
-                      <Link to={`/goals?goal=${g.id}`} className="block group">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <p className="text-sm truncate group-hover:text-accent">{g.title}<DemoBadge show={g.is_demo} /></p>
-                          <span className="text-xs tnum text-ink-2 shrink-0">
-                            {g.progress}%{g.target_date && <span className={cn("ml-2", g.overdue ? "text-[#f07a7a]" : "text-ink-3")}>{g.overdue ? "overdue" : `${g.days_left}d left`}</span>}
-                          </span>
-                        </div>
-                        <Progress className="mt-1.5" value={g.progress} tone={g.overdue ? "warn" : "accent"} label={`${g.title} progress`} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+        <motion.div variants={rise} className="[grid-area:att] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Attention" subtitle="Rule-based · each explains why" />
+            <InsightList items={data.insights} limit={4} />
           </Card>
-        </div>
+        </motion.div>
 
-        <div className="space-y-6 min-w-0">
-          <Card>
-            <CardHeader title="Attention" subtitle="Rule-based alerts. Each explains why it appeared." />
-            <InsightList items={data.insights} />
-          </Card>
-
-          <Card>
-            <CardHeader title="Upcoming payments" to="/finances/recurring" subtitle="Expected — not yet recorded" />
+        <motion.div variants={rise} className="[grid-area:up] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Upcoming" to="/finances/recurring" subtitle={`Expected · ${formatMoney(data.expected_payments.total_expected_outflow_30d, cur)} in 30 days`} />
             {data.expected_payments.items.length === 0 ? (
-              <EmptyState className="py-5" icon={<CalendarClock className="h-5 w-5" />} title="Nothing scheduled" body="Add recurring payments or installment plans to see what's coming." />
+              <EmptyState className="py-5" icon={<CalendarClock className="h-5 w-5" />} title="Nothing scheduled" body="Add recurring payments or installment plans." />
             ) : (
-              <ul className="px-2 pb-2">
-                {data.expected_payments.items.slice(0, 6).map((p) => (
-                  <li key={`${p.kind}-${p.source_id}-${p.due_date}`}>
-                    <Link to={p.kind === "installment" ? "/finances/installments" : "/finances/recurring"} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.03]">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{p.name}</p>
-                        <p className={cn("text-xs", p.overdue ? "text-[#f07a7a]" : "text-ink-3")}>{p.overdue ? "Overdue · " : ""}{relativeDay(p.due_date, data.today)} · {p.kind === "installment" ? "installment" : "recurring"}</p>
-                      </div>
-                      <MoneyText value={p.type === "expense" ? `-${p.amount}` : p.amount} currency={p.currency} className="text-sm" signed />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <table className="w-full text-[13.5px]">
+                <tbody>
+                  {data.expected_payments.items.slice(0, 6).map((p) => (
+                    <tr key={`${p.kind}-${p.source_id}-${p.due_date}`} className="border-t hairline first:border-0">
+                      <td className={cn("pl-5 py-2 w-[86px] font-medium whitespace-nowrap", p.overdue ? "text-bad" : "text-accent")}>{p.overdue ? "Overdue" : relativeDay(p.due_date, data.today)}</td>
+                      <td className="py-2 truncate max-w-[9rem]"><Link to={p.kind === "installment" ? "/finances/installments" : "/finances/recurring"} className="hover:underline">{p.name.replace(/^Demo · /, "")}</Link></td>
+                      <td className="pr-5 py-2 text-right whitespace-nowrap"><MoneyText value={p.type === "expense" ? `-${p.amount}` : p.amount} currency={p.currency} signed /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
+            {data.liabilities.map((l) => (
+              <p key={l.currency} className="mx-5 mt-2 mb-4 rounded-lg bg-fill/[0.04] px-3 py-2 text-xs text-ink-2">Outstanding installments <b className="tnum float-right">{formatMoney(l.amount, l.currency)}</b></p>
+            ))}
           </Card>
+        </motion.div>
 
-          <Card>
-            <CardHeader title="Accounts" to="/finances/accounts" />
-            {!hasAccounts ? (
-              <EmptyState className="py-5" title="No accounts" action={<Link to="/finances/accounts"><Button size="sm" variant="primary">Add account</Button></Link>} />
-            ) : (
-              <ul className="px-5 pb-4 space-y-2">
-                {data.accounts.items.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate text-ink-2">{a.name}<Badge className="ml-2">{ACCOUNT_TYPE_LABEL[a.type]}</Badge></span>
-                    <MoneyText value={a.current_balance} currency={a.currency} className={cn(a.current_balance.startsWith("-") && "text-bad")} />
-                  </li>
-                ))}
-                <li><Link to="/finances/transactions" className="mt-1 inline-flex items-center gap-1 text-xs text-accent">All transactions <ArrowRight className="h-3 w-3" /></Link></li>
-              </ul>
-            )}
+        <motion.div variants={rise} className="[grid-area:habits] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Habits" to="/habits" subtitle={scheduledHabits.length ? `${data.habits.done_today} of ${data.habits.scheduled_today} today · tap today's square to check in` : "Last 7 days"} />
+            <div className="px-5 pb-4 overflow-x-auto">
+              {data.habits.items.length === 0
+                ? <EmptyState className="py-4" icon={<Flame className="h-5 w-5" />} title="No habits yet" action={<Link to="/habits?new=1"><Button size="sm">Create a habit</Button></Link>} />
+                : <HabitMatrix habits={data.habits.items} today={data.today} />}
+            </div>
           </Card>
-        </div>
+        </motion.div>
+
+        <motion.div variants={rise} className="[grid-area:goals] min-w-0">
+          <Card className="h-full">
+            <CardHeader title="Goals" to="/goals" />
+            <div className="px-3 pb-3">
+              {data.goals.length === 0 ? (
+                <EmptyState className="py-4" icon={<Target className="h-5 w-5" />} title="No active goals" action={<Link to="/goals?new=1"><Button size="sm">Set a goal</Button></Link>} />
+              ) : data.goals.map((g) => (
+                <Link key={g.id} to={`/goals?goal=${g.id}`} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-fill/[0.04]">
+                  <img src={goalArt(g.category)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-[9px] object-cover bg-fill/[0.08]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-medium">{g.title}<DemoBadge show={g.is_demo} /></span>
+                    <Progress className="mt-1.5" value={g.progress} tone={g.overdue ? "warn" : "accent"} label={`${g.title} progress`} />
+                  </span>
+                  <span className={cn("text-xs tnum", g.overdue ? "text-bad" : "text-ink-3")}>{g.progress}%</span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+
+      <motion.p variants={rise} className="flex items-center gap-4 text-xs text-ink-3">
+        <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3.5 w-3.5 text-good" /> actual figures come from recorded transactions</span>
+        <span className="inline-flex items-center gap-1"><ArrowUpRight className="h-3.5 w-3.5 text-accent" /> “expected” rows are projections</span>
+      </motion.p>
+    </motion.div>
   );
 }

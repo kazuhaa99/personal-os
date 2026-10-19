@@ -1,4 +1,4 @@
-# Design Lab image credits
+# Image credits (app wallpapers, goal art, design lab)
 
 Photos are bundled locally (no runtime requests to third-party hosts). Resized and recompressed.
 

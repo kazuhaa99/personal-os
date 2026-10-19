@@ -98,7 +98,7 @@ function CategoryManager() {
       </form>
       <ul className="px-2 pb-2 max-h-[28rem] overflow-y-auto">
         {list.map((c) => (
-          <li key={c.id} className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-white/[0.03]">
+          <li key={c.id} className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-fill/[0.03]">
             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: c.color }} />
             <span className={cn("text-sm flex-1 truncate", c.is_archived && "text-ink-3 line-through")}>{c.name}</span>
             {c.is_system && <Badge>system</Badge>}
@@ -139,7 +139,7 @@ export function AccountsPage() {
         {isLoading ? <LoadingBlock /> : !accounts?.length ? (
           <Card><EmptyState icon={<Landmark className="h-6 w-6" />} title="Add your first account" body="Cash, bank cards, savings deposits — anything you want to track. Use the actual balance today as the opening balance." action={<Button variant="primary" onClick={() => setForm({ open: true, editing: null })}>New account</Button>} /></Card>
         ) : (
-          <Card className="divide-y divide-white/[0.06]">
+          <Card className="divide-y divide-line/[0.08]">
             {[...active, ...archived].map((a) => (
               <div key={a.id} className={cn("group flex items-center gap-4 px-5 py-3.5", a.is_archived && "opacity-60")}>
                 <div className="min-w-0 flex-1">

@@ -1,14 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database, KeyRound, Trash2, User } from "lucide-react";
+import { Check, Database, KeyRound, Palette, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import { useAction, useSettings } from "@/lib/queries";
+import { useTheme, WALLPAPERS, type ThemeMode } from "@/lib/theme";
 import { useConfirm } from "@/components/ui/dialog";
-import { Button, Card, CardHeader, Field, Input, Select } from "@/components/ui/primitives";
+import { Button, Card, CardHeader, cn, Field, Input, Segmented, Select } from "@/components/ui/primitives";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const ZONES = ["Asia/Almaty", "Asia/Aqtobe", "Asia/Qostanay", "Asia/Oral", "Asia/Tashkent", "Asia/Bishkek", "Europe/Moscow", "Europe/Istanbul", "Asia/Dubai", "Europe/Berlin", "Europe/London", "America/New_York", "UTC"];
+
+function AppearanceCard() {
+  const { mode, setMode, wallpaper, setWallpaper } = useTheme();
+  return (
+    <Card>
+      <CardHeader title={<span className="inline-flex items-center gap-2"><Palette className="h-4 w-4 text-ink-3" /> Appearance</span>}
+        subtitle="Stored in this browser. Glass surfaces show the wallpaper through; text always sits on a near-opaque layer." />
+      <div className="px-5 pb-5 space-y-4">
+        <Segmented<ThemeMode> value={mode} onChange={setMode} options={[{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }, { value: "system", label: "Match system" }]} />
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5" role="radiogroup" aria-label="Wallpaper">
+          {WALLPAPERS.map((w) => (
+            <button key={w.id} role="radio" aria-checked={wallpaper === w.id} onClick={() => setWallpaper(w.id)} className="group text-left">
+              <span className={cn("relative block aspect-[4/3] overflow-hidden rounded-xl ring-1 ring-line/10 transition-shadow", wallpaper === w.id && "ring-2 ring-accent")}
+                style={{ background: w.src ? w.color : "linear-gradient(135deg, rgb(var(--bg)), rgb(var(--surface)))" }}>
+                {w.src && <img src={w.src} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />}
+                {wallpaper === w.id && <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>}
+              </span>
+              <span className="mt-1.5 block text-xs text-ink-2">{w.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export function SettingsPage() {
   const { data: settings } = useSettings();
@@ -31,6 +57,7 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-5">
+      <AppearanceCard />
       <Card>
         <CardHeader title={<span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-ink-3" /> Profile & preferences</span>} />
         <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ owner_name: name.trim(), timezone: tz }); }}>

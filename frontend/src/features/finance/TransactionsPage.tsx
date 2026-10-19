@@ -140,19 +140,19 @@ export function TransactionsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-ink-3 border-b hairline">
-                  <th className="text-left font-normal px-4 py-2.5 w-28">Date</th>
-                  <th className="text-left font-normal px-4 py-2.5">Description</th>
-                  <th className="text-left font-normal px-4 py-2.5 hidden md:table-cell">Category</th>
-                  <th className="text-left font-normal px-4 py-2.5 hidden sm:table-cell">Account</th>
-                  <th className="text-right font-normal px-4 py-2.5">Amount</th>
-                  <th className="w-20" />
+                  <th className="text-left font-normal px-3 py-2 w-28">Date</th>
+                  <th className="text-left font-normal px-3 py-2">Description</th>
+                  <th className="text-left font-normal px-3 py-2 hidden md:table-cell">Category</th>
+                  <th className="text-left font-normal px-3 py-2 hidden sm:table-cell">Account</th>
+                  <th className="text-right font-normal px-3 py-2">Amount</th>
+                  <th className="w-16" />
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((tx) => (
-                  <tr key={tx.id} className="group border-b hairline last:border-0 hover:bg-white/[0.02]">
-                    <td className="px-4 py-2.5 text-ink-2 tnum whitespace-nowrap">{fmtDate(tx.date, "d MMM yy")}</td>
-                    <td className="px-4 py-2.5 max-w-[22rem]">
+                  <tr key={tx.id} className="group border-b hairline last:border-0 hover:bg-fill/[0.02]">
+                    <td className="px-3 py-2 text-ink-2 tnum whitespace-nowrap">{fmtDate(tx.date, "d MMM yy")}</td>
+                    <td className="px-3 py-2 max-w-[22rem]">
                       <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? "Transfer" : tx.category?.name)}<DemoBadge show={tx.is_demo} /></p>
                       <p className="text-xs text-ink-3 truncate">
                         {tx.payee && tx.description ? tx.payee : ""}
@@ -161,13 +161,13 @@ export function TransactionsPage() {
                         {tx.installment_payment_id && <Badge className="mr-1">installment</Badge>}
                       </p>
                     </td>
-                    <td className="px-4 py-2.5 hidden md:table-cell">
+                    <td className="px-3 py-2 hidden md:table-cell">
                       {tx.type === "transfer" ? <span className="inline-flex items-center gap-1 text-ink-3 text-xs"><ArrowLeftRight className="h-3.5 w-3.5" /> Transfer</span> : (
                         <span className="inline-flex items-center gap-1.5 text-ink-2 whitespace-nowrap"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tx.category?.color }} />{tx.category?.name}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 hidden sm:table-cell text-ink-2 whitespace-nowrap">{tx.account.name}{tx.to_account && <span className="text-ink-3"> → {tx.to_account.name}</span>}</td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap"><Amount tx={tx} /></td>
+                    <td className="px-3 py-2 hidden sm:table-cell text-ink-2 whitespace-nowrap">{tx.account.name}{tx.to_account && <span className="text-ink-3"> → {tx.to_account.name}</span>}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap"><Amount tx={tx} /></td>
                     <td className="px-2 py-2.5 text-right whitespace-nowrap">
                       <Button variant="ghost" size="icon" aria-label="Edit" className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => qa.editTransaction(tx)}><Pencil className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" aria-label="Delete" className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => onDelete(tx)}><Trash2 className="h-3.5 w-3.5" /></Button>

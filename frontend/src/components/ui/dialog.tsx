@@ -19,11 +19,11 @@ export function Modal({ open, onOpenChange, title, description, children, footer
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="dlg-overlay fixed inset-0 z-40 bg-black/25 backdrop-blur-[3px]" />
         <Dialog.Content
           className={cn(
             "fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-[12vh] sm:-translate-x-1/2",
-            "w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-raised border hairline shadow-2xl shadow-black/50",
+            "dlg-content w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl mat-popover",
             "max-h-[88vh] flex flex-col",
             wide && "sm:max-w-2xl",
           )}
@@ -69,8 +69,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       <AlertDialog.Root open={!!state} onOpenChange={(o) => !o && close(false)}>
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-          <AlertDialog.Content className="fixed z-50 left-1/2 top-[22vh] -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-raised border hairline p-5 shadow-2xl">
+          <AlertDialog.Overlay className="dlg-overlay fixed inset-0 z-50 bg-black/25 backdrop-blur-[3px]" />
+          <AlertDialog.Content className="dlg-content fixed z-50 left-1/2 top-[22vh] -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm rounded-2xl mat-popover p-5">
             <AlertDialog.Title className="text-base font-semibold">{state?.title}</AlertDialog.Title>
             <AlertDialog.Description className="mt-2 text-sm text-ink-2">{state?.body ?? "This cannot be undone."}</AlertDialog.Description>
             <div className="mt-5 flex justify-end gap-2">

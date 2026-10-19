@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { addDays, format, parseISO, startOfWeek, subDays } from "date-fns";
 import { Archive, Check, Flame, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { todayISO } from "@/lib/format";
 import { useAction } from "@/lib/queries";
@@ -46,7 +47,7 @@ function HabitForm({ open, onOpenChange, editing }: { open: boolean; onOpenChang
           <div className="flex flex-wrap gap-1.5 pt-1">
             {WEEKDAYS.map((d, i) => (
               <button key={d} type="button" aria-pressed={weekdays.includes(i)} onClick={() => setWeekdays((w) => (w.includes(i) ? w.filter((x) => x !== i) : [...w, i].sort()))}
-                className={cn("h-8 w-11 rounded-lg text-xs border", weekdays.includes(i) ? "bg-accent text-accent-ink border-accent" : "hairline text-ink-2 hover:bg-white/[0.04]")}>{d}</button>
+                className={cn("h-8 w-11 rounded-lg text-xs border", weekdays.includes(i) ? "bg-accent text-accent-ink border-accent" : "hairline text-ink-2 hover:bg-fill/[0.04]")}>{d}</button>
             ))}
           </div>
         )}
@@ -54,7 +55,7 @@ function HabitForm({ open, onOpenChange, editing }: { open: boolean; onOpenChang
       <div className="space-y-2">
         <p className="text-xs font-medium text-ink-2">Color</p>
         <div className="flex gap-2">{COLORS.map((c) => (
-          <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c} onClick={() => setColor(c)} className={cn("h-7 w-7 rounded-full", color === c && "ring-2 ring-offset-2 ring-offset-raised ring-white/70")} style={{ background: c }} />
+          <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c} onClick={() => setColor(c)} className={cn("h-7 w-7 rounded-full", color === c && "ring-2 ring-offset-2 ring-offset-raised ring-ink/50")} style={{ background: c }} />
         ))}</div>
       </div>
       <Field label="Notes">{(id) => <Textarea id={id} value={description} onChange={(e) => setDescription(e.target.value)} />}</Field>
@@ -80,7 +81,7 @@ function Heatmap({ habit, today }: { habit: Habit; today: string }) {
             const isDone = done.has(iso);
             return (
               <div key={iso} title={`${format(d, "EEE d MMM")}: ${future ? "" : isDone ? "done" : sched ? "missed" : "not scheduled"}`}
-                className={cn("h-[11px] w-[11px] rounded-[3px]", future ? "bg-transparent" : !isDone && sched ? "bg-white/[0.06]" : !isDone ? "bg-white/[0.02]" : "")}
+                className={cn("h-[11px] w-[11px] rounded-[3px]", future ? "bg-transparent" : !isDone && sched ? "bg-fill/[0.06]" : !isDone ? "bg-fill/[0.02]" : "")}
                 style={isDone ? { background: habit.color } : undefined} />
             );
           })}
@@ -121,7 +122,7 @@ function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEd
           return (
             <button key={iso} type="button" disabled={beforeStart || toggle.isPending} aria-pressed={isDone} aria-label={`${format(d, "EEEE d MMM")}${isDone ? ", done" : ""}`}
               onClick={() => toggle.mutate({ date: iso, done: !isDone })}
-              className={cn("flex-1 rounded-lg border py-1.5 text-center transition-colors disabled:opacity-30", isDone ? "border-transparent" : sched ? "hairline hover:bg-white/[0.05]" : "border-dashed border-white/10 hover:bg-white/[0.03]")}
+              className={cn("flex-1 rounded-lg border py-1.5 text-center transition-colors disabled:opacity-30", isDone ? "border-transparent" : sched ? "hairline hover:bg-fill/[0.05]" : "border-dashed border-white/10 hover:bg-fill/[0.03]")}
               style={isDone ? { background: `${habit.color}26`, borderColor: `${habit.color}66` } : undefined}>
               <span className="block text-2xs text-ink-3">{format(d, "EEEEE")}</span>
               <span className="mt-0.5 grid place-items-center h-5">{isDone ? <Check className="h-4 w-4" style={{ color: habit.color }} strokeWidth={3} /> : <span className={cn("text-xs tnum", iso === today ? "text-ink" : "text-ink-3")}>{format(d, "d")}</span>}</span>
@@ -137,7 +138,7 @@ function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEd
           ["Streak", `${habit.current_streak}`],
           ["Best", `${habit.longest_streak}`],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-lg bg-black/20 py-2">
+          <div key={k} className="rounded-lg bg-fill/[0.05] py-2">
             <dd className="text-base font-semibold tnum">{v}</dd>
             <dt className="text-2xs text-ink-3">{k}</dt>
           </div>
@@ -152,6 +153,13 @@ function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEd
 export function HabitsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [form, setForm] = useState<{ open: boolean; editing: Habit | null }>({ open: false, editing: null });
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("new")) {
+      setForm({ open: true, editing: null });
+      setParams({}, { replace: true });
+    }
+  }, [params, setParams]);
   const { data: habits, isLoading } = useQuery({ queryKey: ["habits", showArchived], queryFn: () => api.get<Habit[]>("/habits", { include_archived: showArchived }) });
   const today = todayISO();
   const scheduled = (habits ?? []).filter((h) => !h.is_archived && h.scheduled_today);

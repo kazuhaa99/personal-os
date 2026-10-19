@@ -9,7 +9,7 @@ The lab is lazy-loaded and fully separated from the production app:
 - All figures come from one shared, clearly labelled sample dataset (`data.ts`) — every concept shows a "Demo data" badge.
 - Concept styles are scoped under a root class (`.ga-`, `.eb-`, `.ac-`, `.nd-`) with low-specificity resets (`:where()`), so nothing leaks into the app or other concepts.
 - Fonts (Inter, Inter Tight, Fraunces, Sora) are self-hosted via `@fontsource-variable` and only load with the lab.
-- Photos are bundled under `public/design-lab/img` (see `public/design-lab/CREDITS.md`); each has a sampled fallback colour so nothing breaks if an image fails.
+- Photos are bundled under `public/media` (see `public/media/CREDITS.md`); each has a sampled fallback colour so nothing breaks if an image fails.
 
 ## Structure
 

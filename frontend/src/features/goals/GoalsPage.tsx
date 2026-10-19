@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Archive, Check, FolderKanban, Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { goalArt } from "@/lib/goalArt";
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -125,7 +126,13 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
 
   return (
     <div className="space-y-5">
-      <Card className="p-5">
+      <Card className="overflow-hidden">
+        <div className="relative h-40 sm:h-48">
+          <img src={goalArt(goal.category)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+          <span className="absolute left-5 bottom-3 rounded-full bg-black/35 backdrop-blur-md px-2.5 py-1 text-xs font-medium text-white">{CATEGORIES[goal.category]}</span>
+        </div>
+        <div className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-ink-3">{CATEGORIES[goal.category]}{goal.target_date && ` · target ${fmtDate(goal.target_date)}`}</p>
@@ -143,7 +150,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
           <div className="flex-1">
             <div className="flex items-baseline justify-between mb-1.5">
               <span className="text-3xl font-semibold tnum">{goal.progress}%</span>
-              <span className="text-xs text-ink-3">{goal.status !== "active" ? <Badge>{goal.status}</Badge> : goal.overdue ? <span className="text-[#f07a7a]">past target date</span> : goal.days_left !== null ? `${goal.days_left} days left` : ""}</span>
+              <span className="text-xs text-ink-3">{goal.status !== "active" ? <Badge>{goal.status}</Badge> : goal.overdue ? <span className="text-bad">past target date</span> : goal.days_left !== null ? `${goal.days_left} days left` : ""}</span>
             </div>
             <Progress value={goal.progress} tone={goal.status === "completed" ? "good" : goal.overdue ? "warn" : "accent"} label="Goal progress" />
           </div>
@@ -152,7 +159,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
               <ResponsiveContainer>
                 <LineChart data={goal.history.map((h) => ({ d: h.recorded_at.slice(0, 10), p: h.progress }))}>
                   <YAxis domain={[0, 100]} hide />
-                  <Tooltip contentStyle={{ background: "#1c1c1f", border: "1px solid rgba(255,255,255,.1)", fontSize: 12 }} labelStyle={{ color: "#a0a0aa" }} formatter={(v) => [`${v}%`, "progress"]} labelFormatter={(l) => fmtDate(String(l))} />
+                  <Tooltip contentStyle={{ background: "rgb(var(--raised))", border: "0.5px solid rgb(var(--line) / 0.15)", borderRadius: 8, fontSize: 12, color: "rgb(var(--ink))" }} labelStyle={{ color: "#a0a0aa" }} formatter={(v) => [`${v}%`, "progress"]} labelFormatter={(l) => fmtDate(String(l))} />
                   <Line isAnimationActive={false} type="stepAfter" dataKey="p" stroke="var(--series-1)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -175,6 +182,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
           </form>
         )}
         {goal.last_progress_at && <p className="mt-3 text-2xs text-ink-3">Last progress change {fmtDate(goal.last_progress_at.slice(0, 10))}</p>}
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -182,9 +190,9 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
           <CardHeader title="Milestones" subtitle={goal.progress_mode === "milestones" ? "Progress is calculated from these" : "Optional checkpoints"} />
           <ul className="px-2">
             {goal.milestones.map((m) => (
-              <li key={m.id} className="group flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/[0.03]">
+              <li key={m.id} className="group flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-fill/[0.03]">
                 <button type="button" aria-label={m.completed_at ? "Mark incomplete" : "Mark complete"} onClick={() => toggleMs.mutate({ id: m.id, completed: !m.completed_at })}
-                  className={cn("h-[18px] w-[18px] rounded-full border grid place-items-center", m.completed_at ? "bg-accent border-accent text-accent-ink" : "border-white/25 hover:border-accent")}>
+                  className={cn("h-[18px] w-[18px] rounded-full border grid place-items-center", m.completed_at ? "bg-accent border-accent text-accent-ink" : "border-ink-3/50 hover:border-accent")}>
                   {m.completed_at && <Check className="h-3 w-3" strokeWidth={3} />}
                 </button>
                 <span className={cn("flex-1 text-sm", m.completed_at && "line-through text-ink-3")}>{m.title}</span>
@@ -239,6 +247,14 @@ export function GoalsPage() {
   const { data: goals, isLoading } = useQuery({ queryKey: ["goals", showArchived], queryFn: () => api.get<Goal[]>("/goals", { include_archived: showArchived }) });
   const selectedId = Number(params.get("goal")) || goals?.[0]?.id;
   const selected = goals?.find((g) => g.id === selectedId) ?? goals?.[0];
+  useEffect(() => {
+    if (params.get("new")) {
+      setForm({ open: true, editing: null });
+      const next = new URLSearchParams(params);
+      next.delete("new");
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams]);
 
   return (
     <div className="space-y-5">
@@ -253,13 +269,16 @@ export function GoalsPage() {
           <Card as="div" className="p-2 self-start">
             {goals.map((g) => (
               <button key={g.id} type="button" onClick={() => setParams({ goal: String(g.id) })}
-                className={cn("w-full text-left rounded-lg px-3 py-2.5 transition-colors", selected?.id === g.id ? "bg-white/[0.07]" : "hover:bg-white/[0.03]")}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className={cn("text-sm truncate", g.archived && "text-ink-3")}>{g.title}</span>
-                  <span className="text-xs tnum text-ink-3">{g.progress}%</span>
-                </div>
-                <Progress className="mt-1.5 h-1" value={g.progress} tone={g.status === "completed" ? "good" : g.overdue ? "warn" : "accent"} label={`${g.title} progress`} />
-                <p className="mt-1 text-2xs text-ink-3">{CATEGORIES[g.category]}{g.overdue && <span className="text-[#f07a7a]"> · overdue</span>}{g.status !== "active" && ` · ${g.status}`}{g.archived && " · archived"}</p>
+                className={cn("relative w-full flex items-center gap-3 text-left rounded-xl px-2 py-2 transition-colors", selected?.id === g.id ? "bg-accent/10" : "hover:bg-fill/[0.04]")}>
+                <img src={goalArt(g.category)} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-[10px] object-cover bg-fill/[0.08]" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className={cn("text-sm font-medium truncate", g.archived && "text-ink-3")}>{g.title}</span>
+                    <span className="text-xs tnum text-ink-3">{g.progress}%</span>
+                  </span>
+                  <Progress className="mt-1.5 h-1" value={g.progress} tone={g.status === "completed" ? "good" : g.overdue ? "warn" : "accent"} label={`${g.title} progress`} />
+                  <span className="mt-1 block text-xs text-ink-3 truncate">{CATEGORIES[g.category]}{g.overdue && <span className="text-bad"> · overdue</span>}{g.status !== "active" && ` · ${g.status}`}{g.archived && " · archived"}</span>
+                </span>
               </button>
             ))}
           </Card>

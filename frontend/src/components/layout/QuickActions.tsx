@@ -30,7 +30,7 @@ export function QuickActionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || document.querySelector("[role=dialog]")) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || document.querySelector("[role=dialog][data-state=open]")) return;
       if (e.key === "t") { e.preventDefault(); newTransaction(); }
       if (e.key === "n") { e.preventDefault(); newTask(); }
     };

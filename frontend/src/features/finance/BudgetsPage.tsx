@@ -89,7 +89,7 @@ export function BudgetsPage() {
               <Link to={`/finances/transactions?type=expense&start=${month}-01&end=${format(addMonths(parseISO(`${month}-01`), 1).getTime() - 86400000, "yyyy-MM-dd")}`} className="text-base tnum hover:text-accent">{formatMoney(data.unbudgeted_spent, cur)}</Link>
             </div>
           </Card>
-          <Card className="divide-y divide-white/[0.06]">
+          <Card className="divide-y divide-line/[0.08]">
             {data.lines.map((l) => {
               const util = l.utilization ? Number(l.utilization) : 0;
               const tone = l.status === "over" ? "bad" : l.status === "warning" ? "warn" : "accent";
@@ -99,12 +99,12 @@ export function BudgetsPage() {
                     <p className="text-sm font-medium flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
                       {l.category_name}
-                      {l.status === "over" && <span className="inline-flex items-center gap-1 text-xs text-[#f07a7a] font-normal"><AlertOctagon className="h-3.5 w-3.5" /> Over budget</span>}
+                      {l.status === "over" && <span className="inline-flex items-center gap-1 text-xs text-bad font-normal"><AlertOctagon className="h-3.5 w-3.5" /> Over budget</span>}
                       {l.status === "warning" && <span className="inline-flex items-center gap-1 text-xs text-warn font-normal"><AlertTriangle className="h-3.5 w-3.5" /> Nearly used</span>}
                     </p>
                     <p className="text-sm tnum">
                       {formatMoney(l.spent, cur)} <span className="text-ink-3">/ {formatMoney(l.limit, cur)}</span>
-                      <span className={cn("ml-3", l.remaining.startsWith("-") ? "text-[#f07a7a]" : "text-ink-2")}>
+                      <span className={cn("ml-3", l.remaining.startsWith("-") ? "text-bad" : "text-ink-2")}>
                         {l.remaining.startsWith("-") ? `${formatMoney(l.remaining.slice(1), cur)} over` : `${formatMoney(l.remaining, cur)} left`}
                       </span>
                     </p>
