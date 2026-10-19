@@ -68,7 +68,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (username: string) => vo
   return (
     <div className="fixed inset-0 overflow-y-auto">
       <Backdrop />
-      <div className="min-h-full flex flex-col items-center justify-center gap-10 px-4 py-10">
+      <div className="min-h-full flex flex-col items-center justify-center gap-10 pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] pt-[max(2.5rem,var(--sat))] pb-[max(2.5rem,var(--sab))]">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
           <Clock />
         </motion.div>

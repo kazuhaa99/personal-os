@@ -260,7 +260,7 @@ export function AppShell() {
         </AnimatePresence>
 
         <div className="relative flex-1 min-w-0 flex flex-col bg-surface/55 backdrop-blur-2xl">
-          <header className="flex h-14 shrink-0 items-center gap-2 px-3 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
+          <header className="flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t("Open menu")} onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
             {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={t("Show sidebar")} onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
             <div className="min-w-0 flex-1 pl-1">
@@ -286,7 +286,7 @@ export function AppShell() {
               <motion.div key={location.pathname}
                 initial={{ opacity: 0, y: 10, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
                 transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                className="mx-auto w-full max-w-[1680px] px-4 py-5 lg:px-6 lg:py-6 pb-28 lg:pb-8">
+                className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
                 {outlet}
               </motion.div>
             </AnimatePresence>
@@ -299,7 +299,7 @@ export function AppShell() {
         {mobileOpen && (
           <div className="lg:hidden fixed inset-0 z-40">
             <motion.div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} />
-            <motion.aside className="absolute left-2 top-2 bottom-2 w-[272px] rounded-2xl mat-popover overflow-hidden"
+            <motion.aside className="absolute left-[max(0.5rem,var(--sal))] top-[max(0.5rem,var(--sat))] bottom-[max(0.5rem,var(--sab))] w-[272px] max-w-[calc(100vw-1rem)] rounded-2xl mat-popover overflow-hidden"
               initial={{ x: "-110%" }} animate={{ x: 0 }} exit={{ x: "-110%" }} transition={{ type: "spring", stiffness: 380, damping: 36 }}>
               <Button variant="ghost" size="icon" className="absolute right-2 top-3 z-10" aria-label={t("Close menu")} onClick={() => setMobileOpen(false)}><X className="h-4 w-4" /></Button>
               <SidebarContent onNavigate={() => setMobileOpen(false)} />
@@ -309,7 +309,7 @@ export function AppShell() {
       </AnimatePresence>
 
       {/* Mobile tab bar: floating glass */}
-      <nav className="lg:hidden fixed bottom-3 inset-x-3 z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label={t("Primary")}>
+      <nav className="lg:hidden fixed bottom-[max(0.75rem,var(--sab))] left-[max(0.75rem,var(--sal))] right-[max(0.75rem,var(--sar))] z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label={t("Primary")}>
         {([PERSONAL[0], PERSONAL[1], { to: "/finances/transactions", label: "Money", icon: ArrowLeftRight }, PERSONAL[3], { to: "/analytics", label: "Analytics", icon: BarChart3 }] as NavItem[]).map(({ to, label, short, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-accent bg-fill/[0.06]" : "text-ink-2")}>
             <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />

@@ -85,10 +85,22 @@
   --chart-axis: #a3a19a;
 }
 
+/* Safe-area insets (iPhone notch / home indicator). Zero on devices without them. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
 html, body, #root { height: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   @apply text-ink font-sans antialiased;
   background-color: rgb(var(--bg));
+  /* The shell scrolls inside <main>; stop the whole page rubber-banding in standalone mode. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   font-feature-settings: "cv11", "ss01";
   letter-spacing: -0.006em;
 }
@@ -97,6 +109,16 @@ body {
 .hairline { border-color: rgb(var(--line) / 0.09); }
 
 *:focus-visible { outline: 3px solid rgb(var(--accent) / 0.5); outline-offset: 1px; border-radius: 6px; }
+
+/* Phones: keep toasts above the floating tab bar and the home indicator. */
+@media (max-width: 1023px) {
+  [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(5.5rem + var(--sab)) !important; }
+}
+
+/* iOS zooms the page when a focused field's text is under 16px; keep phones at 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+}
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--fill) / 0.14); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }

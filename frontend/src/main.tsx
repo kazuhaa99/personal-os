@@ -10,6 +10,13 @@ import { ThemeProvider, useTheme } from "./lib/theme";
 import "@fontsource-variable/inter";
 import "./index.css";
 
+// PWA: static-only service worker (public/sw.js). Production only, so it never shadows Vite's dev server.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true, staleTime: 10_000, placeholderData: (prev: unknown) => prev } },
 });
