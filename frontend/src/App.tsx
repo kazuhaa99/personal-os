@@ -1,5 +1,7 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { QuickActionsProvider } from "./components/layout/QuickActions";
 import { AnalyticsPage } from "./features/analytics/AnalyticsPage";
 import { AccountsPage } from "./features/finance/AccountsPage";
 import { BudgetsPage } from "./features/finance/BudgetsPage";
@@ -13,10 +15,14 @@ import { OverviewPage } from "./features/overview/OverviewPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 
+// Isolated design exploration (no API calls, sample data only). Lazy so it never weighs on the real app.
+const DesignLab = lazy(() => import("./design-lab/DesignLab"));
+
 export function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      <Route path="design-lab/*" element={<Suspense fallback={null}><DesignLab /></Suspense>} />
+      <Route element={<QuickActionsProvider><AppShell /></QuickActionsProvider>}>
         <Route index element={<OverviewPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="goals" element={<GoalsPage />} />

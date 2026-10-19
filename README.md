@@ -58,6 +58,13 @@ Settings → **Load demo data**. Every demo record is flagged `is_demo`, demo ac
 named `Demo · …`, and a banner is shown while demo data exists. **Remove demo data**
 deletes all of it without touching your own records.
 
+### Design Lab (visual direction exploration)
+
+Open **http://127.0.0.1:5173/design-lab** (local dev) to compare four interactive redesign concepts —
+Liquid Glass OS, Editorial Lifestyle, Ambient Spatial OS and Premium Native. The lab only needs the frontend
+(`npm run dev`), uses clearly labelled sample data, never calls the API and is lazy-loaded so it does not affect the app.
+Details: [`frontend/src/design-lab/README.md`](frontend/src/design-lab/README.md).
+
 ---
 
 ## Tests
