@@ -1,6 +1,7 @@
 import { Check, Repeat } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtDate, relativeDay } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { useAction } from "@/lib/queries";
 import type { Task } from "@/lib/types";
 import { Badge, cn, DemoBadge } from "@/components/ui/primitives";
@@ -9,20 +10,26 @@ import { useQuickActions } from "@/components/layout/QuickActions";
 const PRIORITY_DOT: Record<Task["priority"], string> = {
   urgent: "bg-bad", high: "bg-warn", medium: "bg-accent/70", low: "bg-fill/20",
 };
+const PRIORITY_NAME: Record<Task["priority"], string> = {
+  urgent: "Urgent priority", high: "High priority", medium: "Medium priority", low: "Low priority",
+};
+const RECURRENCE_NAME: Record<Task["recurrence"], string> = {
+  none: "Never", daily: "Daily", weekdays: "Weekdays", weekly: "Weekly", monthly: "Monthly",
+};
 
 export function TaskCheck({ task }: { task: Task }) {
   const toggle = useAction(
     () => api.post<{ next_instance: Task | null }>(`/tasks/${task.id}/${task.status === "done" ? "reopen" : "complete"}`),
     { success: (r: unknown) => {
       const res = r as { next_instance?: Task | null };
-      return task.status === "done" ? "Task reopened" : res?.next_instance ? `Done · next on ${fmtDate(res.next_instance.due_date, "d MMM")}` : "Done";
+      return task.status === "done" ? t("Task reopened") : res?.next_instance ? t("Done · next on {date}", { date: fmtDate(res.next_instance.due_date, t("d MMM")) }) : t("Done");
     } },
   );
   const done = task.status === "done";
   return (
     <button
       type="button"
-      aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+      aria-label={done ? t("Reopen {title}", { title: task.title }) : t("Complete {title}", { title: task.title })}
       onClick={() => toggle.mutate(undefined)}
       disabled={toggle.isPending}
       className={cn(
@@ -49,14 +56,14 @@ export function TaskRow({ task, today, compact }: { task: Task; today: string; c
         {!compact && task.description && <p className="text-xs text-ink-3 truncate mt-0.5">{task.description}</p>}
       </button>
       <div className="flex items-center gap-2 shrink-0 text-xs">
-        {task.recurrence !== "none" && <Repeat className="h-3.5 w-3.5 text-ink-3" aria-label={`Repeats ${task.recurrence}`} />}
+        {task.recurrence !== "none" && <Repeat className="h-3.5 w-3.5 text-ink-3" aria-label={t("Repeats: {rule}", { rule: t(RECURRENCE_NAME[task.recurrence]) })} />}
         {task.category && !compact && <Badge>{task.category}</Badge>}
         {task.due_date && (
           <span className={cn("tnum", task.overdue ? "text-bad" : "text-ink-3")}>
             {relativeDay(task.due_date, today)}{task.due_time ? ` ${task.due_time.slice(0, 5)}` : ""}
           </span>
         )}
-        <span className={cn("h-2 w-2 rounded-full", PRIORITY_DOT[task.priority])} title={`${task.priority} priority`} aria-label={`${task.priority} priority`} />
+        <span className={cn("h-2 w-2 rounded-full", PRIORITY_DOT[task.priority])} title={t(PRIORITY_NAME[task.priority])} aria-label={t(PRIORITY_NAME[task.priority])} />
       </div>
     </div>
   );

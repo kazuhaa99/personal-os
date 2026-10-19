@@ -5,6 +5,7 @@ import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes,
 import { Link } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { formatMoney, isNegative } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { useSheen } from "@/lib/useSheen";
 
 export function cn(...inputs: ClassValue[]) {
@@ -166,7 +167,7 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
 }
 
 export function DemoBadge({ show }: { show: boolean }) {
-  return show ? <Badge tone="demo" className="ml-1.5 align-middle">demo</Badge> : null;
+  return show ? <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge> : null;
 }
 
 export function EmptyState({ icon, title, body, action, className }: { icon?: ReactNode; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
@@ -181,7 +182,7 @@ export function EmptyState({ icon, title, body, action, className }: { icon?: Re
 }
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn("h-5 w-5 animate-spin text-ink-3", className)} />;
+  return <Loader2 className={cn("h-5 w-5 animate-spin text-ink-3", className)} aria-label={t("Loading")} />;
 }
 
 export function LoadingBlock() {
@@ -193,9 +194,9 @@ export function LoadingBlock() {
 }
 
 export function ErrorBlock({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  const msg = error instanceof Error ? error.message : "Failed to load";
+  const msg = error instanceof Error ? error.message : t("Failed to load");
   return (
-    <EmptyState title="Couldn't load this" body={msg} action={onRetry && <Button size="sm" onClick={onRetry}>Retry</Button>} />
+    <EmptyState title={t("Couldn't load this")} body={msg} action={onRetry && <Button size="sm" onClick={onRetry}>{t("Retry")}</Button>} />
   );
 }
 

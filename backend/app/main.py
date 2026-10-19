@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from app.api import finance, planning, system
+from app.api import auth, finance, planning, system
 from app.api.deps import require_token
 from app.config import get_settings
 from app.db import SessionLocal
@@ -38,7 +38,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "Accept-Language"],
 )
 
 
@@ -79,6 +79,7 @@ async def integrity_error(_: Request, exc: IntegrityError):
     return _error(409, "conflict", "This change conflicts with existing data", {"constraint": constraint})
 
 
+app.include_router(auth.router, prefix="/api")
 protected = [Depends(require_token)]
 app.include_router(finance.router, prefix="/api", dependencies=protected)
 app.include_router(planning.router, prefix="/api", dependencies=protected)

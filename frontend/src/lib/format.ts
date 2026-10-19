@@ -1,4 +1,5 @@
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format as isoFormat, parseISO } from "date-fns";
+import { format, t, tp } from "./i18n";
 
 const THIN = " ";
 const SYMBOLS: Record<string, string> = { KZT: "₸", USD: "$", EUR: "€", RUB: "₽" };
@@ -41,29 +42,34 @@ export function normalizeAmount(input: string): string | null {
 
 export function fmtDate(d: string | null | undefined, pattern = "d MMM yyyy"): string {
   if (!d) return "—";
-  return format(parseISO(d), pattern);
+  return format(parseISO(d), t(pattern)); // patterns are dictionary keys (Korean puts the year first)
 }
 
 export function relativeDay(d: string, today: string): string {
   const diff = differenceInCalendarDays(parseISO(d), parseISO(today));
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff === -1) return "Yesterday";
-  if (diff < 0) return `${-diff} days ago`;
+  if (diff === 0) return t("Today");
+  if (diff === 1) return t("Tomorrow");
+  if (diff === -1) return t("Yesterday");
+  if (diff < 0) return tp("{n} days ago", -diff);
   if (diff < 7) return format(parseISO(d), "EEEE");
-  return format(parseISO(d), "d MMM");
+  return format(parseISO(d), t("d MMM"));
 }
 
 export function monthLabel(m: string, pattern = "MMM yyyy"): string {
-  return format(parseISO(`${m}-01`), pattern);
+  return format(parseISO(`${m}-01`), t(pattern));
 }
 
 export function todayISO(): string {
-  return format(new Date(), "yyyy-MM-dd");
+  return isoFormat(new Date(), "yyyy-MM-dd");
 }
 
-export const FREQUENCY_LABEL: Record<string, string> = {
+const FREQUENCIES: Record<string, string> = {
   weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly",
 };
+const ACCOUNT_TYPES: Record<string, string> = { cash: "Cash", bank: "Bank", savings: "Savings", other: "Other" };
 
-export const ACCOUNT_TYPE_LABEL: Record<string, string> = { cash: "Cash", bank: "Bank", savings: "Savings", other: "Other" };
+/** Translated lookups (read at render time, so they follow the active language). */
+const translated = (src: Record<string, string>) =>
+  new Proxy(src, { get: (o, k: string) => (k in o ? t(o[k]) : undefined) }) as Record<string, string>;
+export const FREQUENCY_LABEL = translated(FREQUENCIES);
+export const ACCOUNT_TYPE_LABEL = translated(ACCOUNT_TYPES);

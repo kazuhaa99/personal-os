@@ -4,6 +4,7 @@ os.environ.setdefault(
     "POS_DATABASE_URL", "postgresql+psycopg://personal_os:personal_os_dev@localhost:5432/personal_os_test"
 )
 os.environ["POS_API_TOKEN"] = ""
+os.environ["POS_AUTH_ENABLED"] = "false"
 
 from datetime import date  # noqa: E402
 

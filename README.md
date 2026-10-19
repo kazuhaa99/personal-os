@@ -52,6 +52,9 @@ npm run dev                                # http://127.0.0.1:5173 (proxies /api
 
 API docs (OpenAPI): http://127.0.0.1:8000/docs
 
+**Sign in** with `admin` / `adminuser123` — the defaults for local development. **Change them**
+(`POS_AUTH_USERNAME`, `POS_AUTH_PASSWORD`) before the app is reachable from anywhere but your own machine.
+
 ### Try it with demo data
 
 Settings → **Load demo data**. Every demo record is flagged `is_demo`, demo accounts are
@@ -69,6 +72,12 @@ The app uses **Premium Native** (concept D from the design lab) as its structure
   live), `mat-popover` (menus, palette, dialogs). `prefers-reduced-transparency` falls back to solid surfaces;
   `prefers-reduced-motion` disables motion.
 - Light, dark or "match system" plus five wallpapers (Settings → Appearance), remembered per browser.
+  **Your own photo**: upload or drag an image onto Settings → Appearance. It is downscaled in the browser
+  (max 2560 px, JPEG) and kept in this browser's IndexedDB only — never uploaded to the server.
+- **Languages**: English, Русский, 한국어 (toolbar globe menu, Settings, ⌘K, or the login screen). Dates use the
+  matching date-fns locale and plurals use `Intl.PluralRules`. Server-generated insights follow the
+  `Accept-Language` header. Dictionaries live in `frontend/src/lib/locales/<lang>/`; English source strings are the keys,
+  so a missing entry falls back to English. `npm run i18n:check` lists any key without a Russian or Korean entry.
 - **⌘K / Ctrl+K command palette**: navigate, create, switch appearance, and search real transactions and tasks.
 - Motion: blurred cross-fades between pages, spring dialogs, animated selection pills in the sidebar and segmented controls.
 
@@ -185,7 +194,12 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 |---|---|---|
 | `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL (`postgresql+psycopg://…`) |
 | `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed origins (`*` is ignored) |
-| `POS_API_TOKEN` | empty | If set, every `/api` call needs `Authorization: Bearer <token>` (enter it in Settings) |
+| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / `adminuser123` | Login for the web UI. **Change before exposing the app** |
+| `POS_AUTH_ENABLED` | `true` | Set `false` to skip the login page (localhost-only setups) |
+| `POS_SECRET_KEY` | auto | Signs session cookies; if unset a random key is created in `backend/.secret_key` |
+| `POS_SESSION_DAYS` | `30` | Session lifetime |
+| `POS_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
+| `POS_API_TOKEN` | empty | Optional bearer token for scripts/integrations (`Authorization: Bearer <token>`) |
 | `POS_DEFAULT_TIMEZONE` | `Asia/Almaty` | Initial timezone (changeable in Settings) |
 | `POS_LOG_LEVEL` | `INFO` | Logging level |
 | `POSTGRES_PASSWORD` | — (required for compose) | Database password |
@@ -210,10 +224,13 @@ alembic check                                      # verify models and migration
 - Running locally is **not** automatically secure: anyone with access to your user account, the
   database, backups or an exposed port can read the data. Data is not encrypted at rest by the app —
   use disk encryption.
-- There is no user-account system. `POS_API_TOKEN` is a single shared secret (constant-time compared);
-  if you ever expose the app beyond localhost, set it **and** put it behind HTTPS (reverse proxy) or a
-  VPN such as Tailscale. Do not expose it to the public internet without those.
-- The token is stored in the browser's localStorage when entered in Settings.
+- Login is a single owner account configured by environment variables (not a multi-user system).
+  A successful login sets an HttpOnly, SameSite=Strict cookie signed with HMAC-SHA256; credentials are
+  compared in constant time and failed attempts are throttled (10 per 5 minutes per client).
+  **The default `admin` / `adminuser123` is public knowledge** (it is in this README) — set your own
+  `POS_AUTH_PASSWORD` and `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS
+  (reverse proxy) or a VPN such as Tailscale before exposing it beyond localhost.
+- `POS_API_TOKEN` (optional) is a shared secret for scripts; when entered in Settings it is stored in localStorage.
 - All input is validated server-side (Pydantic + DB constraints); all SQL goes through SQLAlchemy
   parameter binding; CORS is an explicit allow-list; responses carry `nosniff`, `DENY` framing and
   `no-store`; request bodies and amounts are not logged; CSV exports neutralise spreadsheet formulas.

@@ -11,6 +11,7 @@ from app.db import get_db
 from app.errors import ValidationFailed
 from app.schemas.planning import SettingsOut, SettingsUpdate
 from app.services import analytics, dashboard, demo, insights
+from app.services.i18n import use_language
 from app.services.dates import month_end, month_start, parse_month, today_for
 from app.services.settings import get_app_settings, update_app_settings
 
@@ -22,12 +23,12 @@ def money_json(data: Any) -> JSONResponse:
     return JSONResponse(jsonable_encoder(data, custom_encoder={Decimal: lambda d: f"{d:f}"}))
 
 
-@router.get("/dashboard", tags=["overview"])
+@router.get("/dashboard", tags=["overview"], dependencies=[Depends(use_language)])
 def get_dashboard(db: Session = Depends(get_db)):
     return money_json(dashboard.build(db))
 
 
-@router.get("/insights", tags=["overview"])
+@router.get("/insights", tags=["overview"], dependencies=[Depends(use_language)])
 def get_insights(include_dismissed: bool = False, db: Session = Depends(get_db)):
     return money_json(insights.compute(db, include_dismissed=include_dismissed))
 

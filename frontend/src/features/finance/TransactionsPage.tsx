@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, errorMessage } from "@/lib/api";
 import { fmtDate, formatMoney, todayISO } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { useAccounts, useAction, useCategories } from "@/lib/queries";
 import type { Transaction, TxPage } from "@/lib/types";
 import { useConfirm } from "@/components/ui/dialog";
@@ -63,10 +64,10 @@ export function TransactionsPage() {
     queryFn: () => api.get<TxPage>("/transactions", { ...filter, limit: PAGE, offset }),
   });
 
-  const del = useAction((id: number) => api.del(`/transactions/${id}`), { success: "Transaction deleted" });
+  const del = useAction((id: number) => api.del(`/transactions/${id}`), { success: t("Transaction deleted") });
 
   async function onDelete(tx: Transaction) {
-    if (await confirm({ title: "Delete transaction?", body: `${formatMoney(tx.amount, tx.currency)} · ${tx.description || tx.category?.name || "transfer"} on ${fmtDate(tx.date)}. Account balances will be recalculated.` })) del.mutate(tx.id);
+    if (await confirm({ title: t("Delete transaction?"), body: t("{amount} · {what} on {date}. Account balances will be recalculated.", { amount: formatMoney(tx.amount, tx.currency), what: tx.description || (tx.category ? t(tx.category.name) : t("transfer")), date: fmtDate(tx.date) }) })) del.mutate(tx.id);
   }
 
   async function onExport() {
@@ -82,49 +83,49 @@ export function TransactionsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Select aria-label="Date range" className="w-auto" value={activePreset} onChange={(e) => {
+        <Select aria-label={t("Date range")} className="w-auto" value={activePreset} onChange={(e) => {
           const p = PRESETS.find((x) => x.key === e.target.value);
           if (!p) return;
           const r = p.range();
           set({ start: r?.[0] ?? "", end: r?.[1] ?? "" });
         }}>
-          {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-          <option value="custom" disabled>Custom range</option>
+          {PRESETS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
+          <option value="custom" disabled>{t("Custom range")}</option>
         </Select>
-        <Input type="date" aria-label="From date" className="w-[9.5rem]" value={filter.start} onChange={(e) => set({ start: e.target.value })} />
+        <Input type="date" aria-label={t("From date")} className="w-[9.5rem]" value={filter.start} onChange={(e) => set({ start: e.target.value })} />
         <span className="text-ink-3 text-sm">–</span>
-        <Input type="date" aria-label="To date" className="w-[9.5rem]" value={filter.end} onChange={(e) => set({ end: e.target.value })} />
-        <Select aria-label="Account" className="w-auto max-w-[12rem]" value={filter.account_id} onChange={(e) => set({ account_id: e.target.value })}>
-          <option value="">All accounts</option>
-          {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.is_archived ? " (archived)" : ""}</option>)}
+        <Input type="date" aria-label={t("To date")} className="w-[9.5rem]" value={filter.end} onChange={(e) => set({ end: e.target.value })} />
+        <Select aria-label={t("Account")} className="w-auto max-w-[12rem]" value={filter.account_id} onChange={(e) => set({ account_id: e.target.value })}>
+          <option value="">{t("All accounts")}</option>
+          {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.is_archived ? ` (${t("archived")})` : ""}</option>)}
         </Select>
-        <Select aria-label="Type" className="w-auto" value={filter.type} onChange={(e) => set({ type: e.target.value, category_id: "" })}>
-          <option value="">All types</option><option value="expense">Expenses</option><option value="income">Income</option><option value="transfer">Transfers</option>
+        <Select aria-label={t("Type")} className="w-auto" value={filter.type} onChange={(e) => set({ type: e.target.value, category_id: "" })}>
+          <option value="">{t("All types")}</option><option value="expense">{t("Expenses")}</option><option value="income">{t("Income")}</option><option value="transfer">{t("Transfers")}</option>
         </Select>
         {filter.type !== "transfer" && (
-          <Select aria-label="Category" className="w-auto max-w-[13rem]" value={filter.category_id} onChange={(e) => set({ category_id: e.target.value })}>
-            <option value="">All categories</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}{!filter.type ? ` (${c.kind})` : ""}</option>)}
+          <Select aria-label={t("Category")} className="w-auto max-w-[13rem]" value={filter.category_id} onChange={(e) => set({ category_id: e.target.value })}>
+            <option value="">{t("All categories")}</option>
+            {cats.map((c) => <option key={c.id} value={c.id}>{t(c.name)}{!filter.type ? ` (${c.kind === "income" ? t("income") : t("expense")})` : ""}</option>)}
           </Select>
         )}
         <form className="relative flex-1 min-w-[10rem]" onSubmit={(e) => { e.preventDefault(); set({ q: search.trim() }); }}>
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-ink-3" />
-          <Input aria-label="Search" placeholder="Search description, payee, amount…" className="pl-8" value={search} onChange={(e) => setSearch(e.target.value)} onBlur={() => search.trim() !== filter.q && set({ q: search.trim() })} />
+          <Input aria-label={t("Search")} placeholder={t("Search description, payee, amount…")} className="pl-8" value={search} onChange={(e) => setSearch(e.target.value)} onBlur={() => search.trim() !== filter.q && set({ q: search.trim() })} />
         </form>
         <div className="flex gap-2 ml-auto">
-          <Button onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import</Button>
-          <Button onClick={onExport}><Download className="h-4 w-4" /> Export</Button>
+          <Button onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> {t("Import")}</Button>
+          <Button onClick={onExport}><Download className="h-4 w-4" /> {t("Export")}</Button>
         </div>
       </div>
 
       {data && data.totals.length > 0 && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm px-1">
-          {data.totals.map((t) => (
-            <div key={t.currency} className="flex flex-wrap gap-x-5 gap-y-1">
-              <span className="text-ink-3">Income <span className="tnum text-good ml-1">{formatMoney(t.income, t.currency)}</span></span>
-              <span className="text-ink-3">Expenses <span className="tnum text-ink ml-1">{formatMoney(t.expense, t.currency)}</span></span>
-              <span className="text-ink-3">Net <span className={cn("tnum ml-1", t.net.startsWith("-") ? "text-bad" : "text-good")}>{formatMoney(t.net, t.currency, { sign: true })}</span></span>
-              <span className="text-ink-3">Transfers <span className="tnum text-ink-2 ml-1">{formatMoney(t.transfers, t.currency)}</span> <span className="text-2xs">(excluded from net)</span></span>
+          {data.totals.map((tot) => (
+            <div key={tot.currency} className="flex flex-wrap gap-x-5 gap-y-1">
+              <span className="text-ink-3">{t("Income")} <span className="tnum text-good ml-1">{formatMoney(tot.income, tot.currency)}</span></span>
+              <span className="text-ink-3">{t("Expenses")} <span className="tnum text-ink ml-1">{formatMoney(tot.expense, tot.currency)}</span></span>
+              <span className="text-ink-3">{t("Net")} <span className={cn("tnum ml-1", tot.net.startsWith("-") ? "text-bad" : "text-good")}>{formatMoney(tot.net, tot.currency, { sign: true })}</span></span>
+              <span className="text-ink-3">{t("Transfers")} <span className="tnum text-ink-2 ml-1">{formatMoney(tot.transfers, tot.currency)}</span> <span className="text-2xs">{t("(excluded from net)")}</span></span>
             </div>
           ))}
         </div>
@@ -132,19 +133,19 @@ export function TransactionsPage() {
 
       <Card className={cn("overflow-hidden transition-opacity", isFetching && !isLoading && "opacity-70")}>
         {isLoading ? <LoadingBlock /> : error ? <ErrorBlock error={error} onRetry={() => refetch()} /> : !data?.items.length ? (
-          <EmptyState icon={<Receipt className="h-6 w-6" />} title={data?.total === 0 && !Object.values(filter).some(Boolean) ? "No transactions yet" : "No transactions match these filters"}
-            body="Record income, expenses and transfers as they happen, or import a CSV."
-            action={<Button variant="primary" onClick={() => qa.newTransaction()}>Add transaction</Button>} />
+          <EmptyState icon={<Receipt className="h-6 w-6" />} title={data?.total === 0 && !Object.values(filter).some(Boolean) ? t("No transactions yet") : t("No transactions match these filters")}
+            body={t("Record income, expenses and transfers as they happen, or import a CSV.")}
+            action={<Button variant="primary" onClick={() => qa.newTransaction()}>{t("Add transaction")}</Button>} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-ink-3 border-b hairline">
-                  <th className="text-left font-normal px-3 py-2 w-28">Date</th>
-                  <th className="text-left font-normal px-3 py-2">Description</th>
-                  <th className="text-left font-normal px-3 py-2 hidden md:table-cell">Category</th>
-                  <th className="text-left font-normal px-3 py-2 hidden sm:table-cell">Account</th>
-                  <th className="text-right font-normal px-3 py-2">Amount</th>
+                  <th className="text-left font-normal px-3 py-2 w-28">{t("Date")}</th>
+                  <th className="text-left font-normal px-3 py-2">{t("Description")}</th>
+                  <th className="text-left font-normal px-3 py-2 hidden md:table-cell">{t("Category")}</th>
+                  <th className="text-left font-normal px-3 py-2 hidden sm:table-cell">{t("Account")}</th>
+                  <th className="text-right font-normal px-3 py-2">{t("Amount")}</th>
                   <th className="w-16" />
                 </tr>
               </thead>
@@ -153,24 +154,24 @@ export function TransactionsPage() {
                   <tr key={tx.id} className="group border-b hairline last:border-0 hover:bg-fill/[0.02]">
                     <td className="px-3 py-2 text-ink-2 tnum whitespace-nowrap">{fmtDate(tx.date, "d MMM yy")}</td>
                     <td className="px-3 py-2 max-w-[22rem]">
-                      <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? "Transfer" : tx.category?.name)}<DemoBadge show={tx.is_demo} /></p>
+                      <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? t("Transfer") : tx.category ? t(tx.category.name) : "")}<DemoBadge show={tx.is_demo} /></p>
                       <p className="text-xs text-ink-3 truncate">
                         {tx.payee && tx.description ? tx.payee : ""}
-                        {tx.tags.map((t) => <span key={t} className="mr-1.5">#{t}</span>)}
-                        {tx.recurring_rule_id && <Badge className="mr-1">recurring</Badge>}
-                        {tx.installment_payment_id && <Badge className="mr-1">installment</Badge>}
+                        {tx.tags.map((tag) => <span key={tag} className="mr-1.5">#{tag}</span>)}
+                        {tx.recurring_rule_id && <Badge className="mr-1">{t("recurring")}</Badge>}
+                        {tx.installment_payment_id && <Badge className="mr-1">{t("installment")}</Badge>}
                       </p>
                     </td>
                     <td className="px-3 py-2 hidden md:table-cell">
-                      {tx.type === "transfer" ? <span className="inline-flex items-center gap-1 text-ink-3 text-xs"><ArrowLeftRight className="h-3.5 w-3.5" /> Transfer</span> : (
-                        <span className="inline-flex items-center gap-1.5 text-ink-2 whitespace-nowrap"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tx.category?.color }} />{tx.category?.name}</span>
+                      {tx.type === "transfer" ? <span className="inline-flex items-center gap-1 text-ink-3 text-xs"><ArrowLeftRight className="h-3.5 w-3.5" /> {t("Transfer")}</span> : (
+                        <span className="inline-flex items-center gap-1.5 text-ink-2 whitespace-nowrap"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tx.category?.color }} />{tx.category ? t(tx.category.name) : ""}</span>
                       )}
                     </td>
                     <td className="px-3 py-2 hidden sm:table-cell text-ink-2 whitespace-nowrap">{tx.account.name}{tx.to_account && <span className="text-ink-3"> → {tx.to_account.name}</span>}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap"><Amount tx={tx} /></td>
                     <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                      <Button variant="ghost" size="icon" aria-label="Edit" className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => qa.editTransaction(tx)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" aria-label="Delete" className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => onDelete(tx)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" aria-label={t("Edit")} className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => qa.editTransaction(tx)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" aria-label={t("Delete")} className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => onDelete(tx)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </td>
                   </tr>
                 ))}
@@ -182,10 +183,10 @@ export function TransactionsPage() {
 
       {data && data.total > PAGE && (
         <div className="flex items-center justify-between text-xs text-ink-3">
-          <span className="tnum">{offset + 1}–{Math.min(offset + PAGE, data.total)} of {data.total}</span>
+          <span className="tnum">{t("{from}–{to} of {total}", { from: offset + 1, to: Math.min(offset + PAGE, data.total), total: data.total })}</span>
           <div className="flex gap-2">
-            <Button size="sm" disabled={offset === 0} onClick={() => set({ offset: String(Math.max(0, offset - PAGE)) })}>Previous</Button>
-            <Button size="sm" disabled={offset + PAGE >= data.total} onClick={() => set({ offset: String(offset + PAGE) })}>Next</Button>
+            <Button size="sm" disabled={offset === 0} onClick={() => set({ offset: String(Math.max(0, offset - PAGE)) })}>{t("Previous")}</Button>
+            <Button size="sm" disabled={offset + PAGE >= data.total} onClick={() => set({ offset: String(offset + PAGE) })}>{t("Next")}</Button>
           </div>
         </div>
       )}

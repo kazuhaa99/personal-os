@@ -9,3 +9,4 @@ backend/.env
 *.log
 .DS_Store
 *.tsbuildinfo
+backend/.secret_key
