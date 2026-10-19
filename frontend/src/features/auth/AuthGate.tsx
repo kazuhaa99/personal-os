@@ -27,8 +27,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await api.post("/auth/logout").catch(() => undefined);
-    qc.clear();
+    // Flip the session first and keep the auth query: qc.clear() would orphan this gate's
+    // observer, so it kept rendering the app. Then drop everything else (private data).
+    await qc.cancelQueries();
     qc.setQueryData<AuthState>(ME_KEY, { authenticated: false, username: null, auth_enabled: true });
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth" });
   }, [qc]);
   const value = useMemo(() => ({ username: data?.username ?? null, logout }), [data?.username, logout]);
 
