@@ -5,7 +5,6 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { App } from "./App";
 import { ConfirmProvider } from "./components/ui/dialog";
-import { QuickActionsProvider } from "./components/layout/QuickActions";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -17,9 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ConfirmProvider>
-          <QuickActionsProvider>
-            <App />
-          </QuickActionsProvider>
+          <App />
         </ConfirmProvider>
         <Toaster theme="dark" position="bottom-right" toastOptions={{ className: "!bg-raised !border-white/10 !text-ink" }} />
       </BrowserRouter>
