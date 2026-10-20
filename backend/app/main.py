@@ -7,13 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from app.api import auth, finance, planning, system
+from app.api import auth, finance, planning, profile, system
 from app.api.deps import require_token
 from app.config import get_settings
 from app.db import SessionLocal
 from app.errors import DomainError
-from app.services.categories import ensure_default_categories
-from app.services.settings import ensure_app_settings
+from app.services.auth import ensure_admin
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
@@ -26,8 +25,7 @@ log = logging.getLogger("personal_os")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     with SessionLocal() as db:
-        ensure_app_settings(db)
-        ensure_default_categories(db)
+        ensure_admin(db)
     yield
 
 
@@ -84,3 +82,4 @@ protected = [Depends(require_token)]
 app.include_router(finance.router, prefix="/api", dependencies=protected)
 app.include_router(planning.router, prefix="/api", dependencies=protected)
 app.include_router(system.router, prefix="/api", dependencies=protected)
+app.include_router(profile.router, prefix="/api", dependencies=protected)

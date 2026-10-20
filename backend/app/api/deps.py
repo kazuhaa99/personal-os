@@ -3,32 +3,43 @@ import secrets
 from fastapi import Cookie, Header, HTTPException, status
 
 from app.config import get_settings
-from app.services.auth import SESSION_COOKIE, verify_session
+from app.db import SessionLocal
+from app.services.auth import SESSION_COOKIE, first_user_id, session_user_id
+from app.tenancy import set_current_user
 
 
-def require_token(
+async def require_user(
     authorization: str | None = Header(default=None),
     session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
-) -> None:
-    """Gate for every /api route.
+) -> int:
+    """Resolve the signed-in user and scope all data access to them.
 
-    Accepts either a valid login session cookie (web UI) or, when POS_API_TOKEN
-    is configured, "Authorization: Bearer <token>" (scripts). This is a
-    single-owner login, not a multi-user account system.
+    Async on purpose: the user id is stored in a context variable, and only
+    values set in the request's own task are visible to the (threadpool)
+    endpoint that runs afterwards.
+
+    Accepted credentials: the login session cookie (web UI), or — when
+    POS_API_TOKEN is configured — "Authorization: Bearer <token>", which acts
+    as the first account (for scripts). With POS_AUTH_ENABLED=false every
+    request acts as the first account (localhost-only setups).
     """
     settings = get_settings()
-    expected = settings.api_token
-    if expected:
+    uid: int | None = None
+    with SessionLocal() as db:
+        expected = settings.api_token
         scheme, _, token = (authorization or "").partition(" ")
-        if scheme.lower() == "bearer" and secrets.compare_digest(token.encode(), expected.encode()):
-            return
-    if settings.auth_enabled:
-        if session and verify_session(session):
-            return
-    elif not expected:
-        return
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Sign in required",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+        if expected and scheme.lower() == "bearer" and secrets.compare_digest(token.encode(), expected.encode()):
+            uid = first_user_id(db)
+        elif not settings.auth_enabled and not expected:
+            uid = first_user_id(db)
+        elif session:
+            uid = session_user_id(db, session)
+    if uid is None:
+        set_current_user(None)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Sign in required", headers={"WWW-Authenticate": "Bearer"})
+    set_current_user(uid)
+    return uid
+
+
+# Kept for the router wiring in main.py.
+require_token = require_user

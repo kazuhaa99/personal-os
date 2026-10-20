@@ -14,8 +14,8 @@ from sqlalchemy import text  # noqa: E402
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.services.categories import ensure_default_categories  # noqa: E402
-from app.services.settings import ensure_app_settings  # noqa: E402
+from app.services.auth import ensure_admin, first_user_id  # noqa: E402
+from app.tenancy import set_current_user  # noqa: E402
 
 assert "test" in str(engine.url.database), "tests must never run against the real database"
 
@@ -33,9 +33,11 @@ def clean():
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     with SessionLocal() as db:
-        ensure_app_settings(db)
-        ensure_default_categories(db)
+        ensure_admin(db)
+        # Direct service calls in tests act as the first account (as the API does with auth disabled).
+        set_current_user(first_user_id(db))
     yield
+    set_current_user(None)
 
 
 @pytest.fixture

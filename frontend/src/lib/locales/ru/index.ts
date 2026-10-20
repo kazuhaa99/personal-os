@@ -4,6 +4,7 @@ import { common } from "./common";
 import { money } from "./money";
 import { more } from "./more";
 import { planning } from "./planning";
+import { profile } from "./profile";
 import { shell } from "./shell";
 
-export const dict: Dict = { ...common, ...shell, ...planning, ...money, ...more, ...auth };
+export const dict: Dict = { ...common, ...shell, ...planning, ...money, ...more, ...profile, ...auth };

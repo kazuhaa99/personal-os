@@ -12,7 +12,7 @@ import { formatMoney } from "@/lib/format";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useAccounts } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
-import type { Dashboard } from "@/lib/types";
+import type { Dashboard, Profile } from "@/lib/types";
 import { Button, cn } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
@@ -46,7 +46,8 @@ const TITLES: [string, string, string][] = [
   ["/tasks", "Tasks", "Plan the day"],
   ["/goals", "Goals & Projects", "Long-term direction"],
   ["/habits", "Habits", "Consistency over streaks"],
-  ["/settings", "Settings", "Profile, appearance and data"],
+  ["/settings", "Settings", "Appearance, language and data"],
+  ["/profile", "Profile", "Personal info, income and security"],
 ];
 
 // ---------------------------------------------------------------- wallpaper
@@ -131,21 +132,37 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
           </Link>
         )}
         <SideLink item={{ to: "/settings", label: "Settings", icon: Settings }} onNavigate={onNavigate} />
-        <SignOutRow />
+        <ProfileChip onNavigate={onNavigate} />
       </div>
     </div>
   );
 }
 
-function SignOutRow() {
+/** Initials avatar or uploaded photo. */
+export function Avatar({ src, name, className }: { src?: string | null; name: string; className?: string }) {
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
+  return src
+    ? <img src={src} alt="" className={cn("rounded-full object-cover ring-1 ring-line/10", className)} />
+    : <span className={cn("grid place-items-center rounded-full text-white font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, #7b8cff, #0a62e0)" }}>{initials}</span>;
+}
+
+function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
   const { username, logout } = useAuth();
+  const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: () => api.get<Profile>("/profile"), staleTime: 60_000 });
+  const full = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
   return (
-    <button type="button" onClick={() => void logout()}
-      className="flex w-full items-center gap-2.5 h-8 px-2.5 rounded-[8px] text-[13.5px] text-ink-2 hover:bg-fill/[0.05] transition-colors">
-      <LogOut className="h-[17px] w-[17px] text-ink-3" strokeWidth={1.8} />
-      <span className="flex-1 truncate text-left">{t("Sign out")}</span>
-      {username && <span className="truncate max-w-[45%] text-xs text-ink-3">{username}</span>}
-    </button>
+    <div className="flex items-center gap-1 rounded-[10px] hover:bg-fill/[0.05] transition-colors">
+      <NavLink to="/profile" onClick={onNavigate} className={({ isActive }) => cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2 py-1.5", isActive && "bg-fill/[0.09]")}>
+        <Avatar src={profile?.avatar_url} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate text-[13.5px] font-medium">{full || username}</span>
+          <span className="block truncate text-xs text-ink-3">{username ? `@${username}` : t("Profile")}</span>
+        </span>
+      </NavLink>
+      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={t("Sign out")} title={t("Sign out")} onClick={() => void logout()}>
+        <LogOut className="h-4 w-4 text-ink-3" />
+      </Button>
+    </div>
   );
 }
 
