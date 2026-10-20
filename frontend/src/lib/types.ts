@@ -262,3 +262,61 @@ export interface AnalyticsSummary {
   budget_performance: { months: { month: string; limit: Money | null; spent: Money | null; over_count: number }[] };
   liabilities: { currency: string; amount: Money }[];
 }
+
+// ---------------------------------------------------------------- accounts & profile
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  email: string;
+  email_verified: boolean;
+  pending_email: string | null;
+  change_email_pending: boolean;
+}
+
+export interface AuthMe {
+  authenticated: boolean;
+  user: AuthUser | null;
+  registration_open: boolean;
+  auth_enabled: boolean;
+}
+
+
+export interface IncomeSource {
+  id: number;
+  name: string;
+  amount: string;
+  currency: string;
+  frequency: Frequency;
+  note: string | null;
+  is_active: boolean;
+  monthly_amount: string;
+}
+
+export interface MonthlyIncome {
+  currency: string;
+  expected: string;
+  salary: string;
+  extra: string;
+  received_this_month: string;
+}
+
+export interface Profile {
+  account: AuthUser;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  birthday: string | null;
+  city: string;
+  occupation: string;
+  employer: string;
+  bio: string;
+  salary_amount: string | null;
+  salary_currency: string;
+  salary_frequency: Frequency;
+  payday: number | null;
+  avatar_url: string | null;
+  updated_at: string | null;
+  income_sources: IncomeSource[];
+  monthly: MonthlyIncome[];
+}

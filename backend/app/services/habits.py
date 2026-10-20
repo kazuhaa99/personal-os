@@ -166,7 +166,7 @@ def set_completion(db: Session, habit_id: int, day: date, done: bool) -> None:
     if done:
         db.execute(
             insert(HabitCompletion)
-            .values(habit_id=habit.id, date=day)
+            .values(habit_id=habit.id, date=day, user_id=habit.user_id)
             .on_conflict_do_nothing(constraint="uq_habit_completions_habit_date")
         )
     else:

@@ -24,6 +24,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     SmallInteger,
     String,
@@ -31,11 +32,13 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.tenancy import Owned
 
 MONEY = Numeric(14, 2)
 
@@ -52,28 +55,101 @@ class TimestampMixin:
 # --------------------------------------------------------------------------- settings
 
 
-class AppSettings(TimestampMixin, Base):
-    """Singleton row (id = 1) describing the local owner and preferences."""
+class User(TimestampMixin, Base):
+    """A login. Every Owned row belongs to exactly one user."""
+
+    __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("username ~ '^[a-z0-9_.]{3,32}$'", name="username_format"),
+        CheckConstraint("code_purpose IS NULL OR code_purpose IN ('verify','reset','change_email')", name="code_purpose"),
+        Index("uq_users_username", text("lower(username)"), unique=True),
+        Index("uq_users_email", text("lower(email)"), unique=True, postgresql_where=text("email <> ''")),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(32), nullable=False)
+    email: Mapped[str] = mapped_column(String(254), default="", nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pending_email: Mapped[str | None] = mapped_column(String(254))
+    # One-time 6-digit code (email confirmation / password reset); only an HMAC is stored.
+    code_purpose: Mapped[str | None] = mapped_column(String(16))
+    code_hash: Mapped[str | None] = mapped_column(String(128))
+    code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    code_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    code_attempts: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
+    # Bumped on password change: invalidates every existing session.
+    session_epoch: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AppSettings(Owned, TimestampMixin, Base):
+    """One row per user: preferences."""
 
     __tablename__ = "app_settings"
-    __table_args__ = (CheckConstraint("id = 1", name="singleton"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     owner_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)
     primary_currency: Mapped[str] = mapped_column(String(3), default="KZT", nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Almaty", nullable=False)
     week_starts_on: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)  # 0 = Monday
 
 
+class Profile(Owned, TimestampMixin, Base):
+    """One row per user: the personal card. Everything is optional; the login email lives on User."""
+
+    __tablename__ = "profile"
+    __table_args__ = (
+        CheckConstraint("salary_amount IS NULL OR salary_amount >= 0", name="salary_non_negative"),
+        CheckConstraint("salary_frequency IN ('weekly','biweekly','monthly','quarterly','yearly')", name="salary_frequency"),
+        CheckConstraint("payday IS NULL OR payday BETWEEN 1 AND 31", name="payday_range"),
+    )
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    first_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    last_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    phone: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    birthday: Mapped[date | None] = mapped_column(Date)
+    city: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    occupation: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    employer: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    bio: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    salary_amount: Mapped[Decimal | None] = mapped_column(MONEY)
+    salary_currency: Mapped[str] = mapped_column(String(3), default="KZT", nullable=False)
+    salary_frequency: Mapped[str] = mapped_column(String(16), default="monthly", nullable=False)
+    payday: Mapped[int | None] = mapped_column(SmallInteger)
+    avatar: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    avatar_type: Mapped[str | None] = mapped_column(String(32))
+    avatar_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class IncomeSource(Owned, TimestampMixin, Base):
+    """Additional income the owner expects (side jobs, rent, dividends…). Planning data, not transactions."""
+
+    __tablename__ = "income_sources"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("frequency IN ('weekly','biweekly','monthly','quarterly','yearly')", name="frequency"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="KZT", nullable=False)
+    frequency: Mapped[str] = mapped_column(String(16), default="monthly", nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
 # --------------------------------------------------------------------------- finance
 
 
-class Account(TimestampMixin, Base):
+class Account(Owned, TimestampMixin, Base):
     __tablename__ = "accounts"
     __table_args__ = (
         CheckConstraint("type IN ('cash','bank','savings','other')", name="type"),
         CheckConstraint("char_length(currency) = 3", name="currency_len"),
-        UniqueConstraint("name", name="uq_accounts_name"),
+        UniqueConstraint("user_id", "name", name="uq_accounts_user_name"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -87,13 +163,13 @@ class Account(TimestampMixin, Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class Category(TimestampMixin, Base):
+class Category(Owned, TimestampMixin, Base):
     """Income or expense category. Transfers never have a category."""
 
     __tablename__ = "categories"
     __table_args__ = (
         CheckConstraint("kind IN ('income','expense')", name="kind"),
-        UniqueConstraint("kind", "name", name="uq_categories_kind_name"),
+        UniqueConstraint("user_id", "kind", "name", name="uq_categories_user_kind_name"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -104,7 +180,7 @@ class Category(TimestampMixin, Base):
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class Transaction(TimestampMixin, Base):
+class Transaction(Owned, TimestampMixin, Base):
     __tablename__ = "transactions"
     __table_args__ = (
         CheckConstraint("type IN ('income','expense','transfer')", name="type"),
@@ -148,7 +224,7 @@ class Transaction(TimestampMixin, Base):
     category: Mapped[Category | None] = relationship(lazy="joined")
 
 
-class BudgetLimit(TimestampMixin, Base):
+class BudgetLimit(Owned, TimestampMixin, Base):
     """Monthly spending limit for an expense category, effective from `effective_month`
     until a later row for the same category replaces it. A row with is_active = false
     disables the budget from that month on. History is therefore preserved."""
@@ -173,7 +249,7 @@ class BudgetLimit(TimestampMixin, Base):
 FREQUENCIES = "('weekly','biweekly','monthly','quarterly','yearly')"
 
 
-class RecurringRule(TimestampMixin, Base):
+class RecurringRule(Owned, TimestampMixin, Base):
     """An *expected* repeating income/expense. It never moves money on its own;
     the owner confirms an occurrence, which records a real transaction."""
 
@@ -203,7 +279,7 @@ class RecurringRule(TimestampMixin, Base):
     category: Mapped[Category] = relationship(lazy="joined")
 
 
-class InstallmentPlan(TimestampMixin, Base):
+class InstallmentPlan(Owned, TimestampMixin, Base):
     """A manually tracked repayment obligation (installment, loan, debt).
 
     outstanding = starting_outstanding - sum(payments). Creating a plan never
@@ -241,7 +317,7 @@ class InstallmentPlan(TimestampMixin, Base):
     )
 
 
-class InstallmentPayment(TimestampMixin, Base):
+class InstallmentPayment(Owned, TimestampMixin, Base):
     """Reduction of an obligation. If `transaction_id` is set, the cash movement and
     the expense live in that transaction (counted once in analytics); this row only
     records the liability reduction."""
@@ -266,7 +342,7 @@ class InstallmentPayment(TimestampMixin, Base):
 # --------------------------------------------------------------------------- planning
 
 
-class Goal(TimestampMixin, Base):
+class Goal(Owned, TimestampMixin, Base):
     __tablename__ = "goals"
     __table_args__ = (
         CheckConstraint("status IN ('active','paused','completed')", name="status"),
@@ -300,7 +376,7 @@ class Goal(TimestampMixin, Base):
     )
 
 
-class GoalProgressLog(Base):
+class GoalProgressLog(Owned, Base):
     __tablename__ = "goal_progress_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -310,7 +386,7 @@ class GoalProgressLog(Base):
     note: Mapped[str | None] = mapped_column(String(255))
 
 
-class Project(TimestampMixin, Base):
+class Project(Owned, TimestampMixin, Base):
     __tablename__ = "projects"
     __table_args__ = (CheckConstraint("status IN ('active','on_hold','completed')", name="status"),)
 
@@ -323,7 +399,7 @@ class Project(TimestampMixin, Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class Milestone(TimestampMixin, Base):
+class Milestone(Owned, TimestampMixin, Base):
     __tablename__ = "milestones"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -336,7 +412,7 @@ class Milestone(TimestampMixin, Base):
     goal: Mapped[Goal] = relationship(back_populates="milestones")
 
 
-class Task(TimestampMixin, Base):
+class Task(Owned, TimestampMixin, Base):
     __tablename__ = "tasks"
     __table_args__ = (
         CheckConstraint("status IN ('todo','in_progress','done')", name="status"),
@@ -366,7 +442,7 @@ class Task(TimestampMixin, Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class Habit(TimestampMixin, Base):
+class Habit(Owned, TimestampMixin, Base):
     __tablename__ = "habits"
     __table_args__ = (
         CheckConstraint("schedule IN ('daily','weekdays')", name="schedule"),
@@ -386,7 +462,7 @@ class Habit(TimestampMixin, Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class HabitCompletion(Base):
+class HabitCompletion(Owned, Base):
     __tablename__ = "habit_completions"
     __table_args__ = (UniqueConstraint("habit_id", "date", name="uq_habit_completions_habit_date"),)
 
@@ -399,12 +475,13 @@ class HabitCompletion(Base):
 # --------------------------------------------------------------------------- insights
 
 
-class InsightDismissal(Base):
+class InsightDismissal(Owned, Base):
     """Insights are computed on demand by deterministic rules; only the owner's
     dismissals are persisted. Keys embed their period (e.g. the month), so a
     dismissed alert returns naturally when the situation recurs."""
 
     __tablename__ = "insight_dismissals"
 
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     key: Mapped[str] = mapped_column(String(160), primary_key=True)
     dismissed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
