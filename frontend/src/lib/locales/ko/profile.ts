@@ -125,4 +125,13 @@ export const profile: Dict = {
   "The code has expired. Send a new one.": "코드가 만료됐어요. 새 코드를 받아 주세요.",
   "Email can't be sent right now. Try again later.": "지금은 메일을 보낼 수 없어요. 잠시 후 다시 시도해 주세요.",
   "Too many attempts. Wait a minute and try again.": "시도 횟수가 너무 많아요. 1분 후 다시 시도해 주세요.",
+
+  // delete account
+  "Delete account": "계정 삭제",
+  "Removes the account and all of its data.": "계정과 모든 데이터를 삭제합니다.",
+  "This permanently deletes your account and all of its data: finances, tasks, goals, habits and profile. It can't be undone.": "계정과 모든 데이터(재정, 할 일, 목표, 습관, 프로필)가 영구적으로 삭제돼요. 되돌릴 수 없어요.",
+  "Type your login “{login}” to confirm": "확인하려면 아이디 “{login}”을(를) 입력하세요",
+  "Delete forever": "영구 삭제",
+  "Your account was deleted": "계정이 삭제됐어요",
+  "This is the only account, so it can't be deleted.": "유일한 계정이라 삭제할 수 없어요.",
 };

@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AtSign, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { AtSign, KeyRound, Mail, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import type { AuthUser, Profile } from "@/lib/types";
 import { useAuth } from "@/features/auth/AuthGate";
@@ -170,10 +170,40 @@ function PasswordModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   );
 }
 
+// ------------------------------------------------------------------ delete account
+
+function DeleteAccountModal({ open, onOpenChange, username }: { open: boolean; onOpenChange: (o: boolean) => void; username: string }) {
+  const { logout } = useAuth();
+  const [password, setPassword] = useState("");
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (open) { setPassword(""); setTyped(""); setError(null); } }, [open]);
+  const remove = useMutation({
+    mutationFn: (pw: string) => api.del("/auth/me", { password: pw }),
+    onSuccess: async () => { onOpenChange(false); toast.success(t("Your account was deleted")); await logout(); },
+    onError: (e) => setError(e instanceof ApiError && e.code === "last_account" ? t("This is the only account, so it can't be deleted.") : securityError(e)),
+  });
+  const matches = typed.trim().toLowerCase() === username.toLowerCase();
+
+  return (
+    <Modal open={open} onOpenChange={onOpenChange} title={t("Delete account")}
+      onSubmit={() => {
+        if (!password) { setError(t("Enter your current password")); return; }
+        if (matches) remove.mutate(password);
+      }}
+      description={t("This permanently deletes your account and all of its data: finances, tasks, goals, habits and profile. It can't be undone.")}
+      footer={<><Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="danger" disabled={!matches} loading={remove.isPending}>{t("Delete forever")}</Button></>}>
+      <Field label={t("Current password")} error={error}>{(id) => <Input id={id} autoFocus type="password" autoComplete="current-password" value={password} aria-invalid={!!error} onChange={(e) => { setPassword(e.target.value); setError(null); }} />}</Field>
+      <Field label={t("Type your login “{login}” to confirm", { login: username })}>{(id) => <Input id={id} autoComplete="off" autoCapitalize="none" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />}</Field>
+    </Modal>
+  );
+}
+
 // ------------------------------------------------------------------ card
 
 export function SecurityCard({ account }: { account: AuthUser }) {
   const [pwOpen, setPwOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
   return (
     <Card>
       <CardHeader title={<span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-ink-3" /> {t("Login & security")}</span>} />
@@ -196,8 +226,15 @@ export function SecurityCard({ account }: { account: AuthUser }) {
             <Button size="sm" onClick={() => setPwOpen(true)}>{t("Change password")}</Button>
           </div>
         </Row>
+        <Row icon={<Trash2 className="h-4 w-4 text-bad" />} label={t("Delete account")}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-ink-2">{t("Removes the account and all of its data.")}</span>
+            <Button size="sm" variant="ghost" className="text-bad hover:text-bad" onClick={() => setDelOpen(true)}>{t("Delete account")}</Button>
+          </div>
+        </Row>
       </div>
       <PasswordModal open={pwOpen} onOpenChange={setPwOpen} />
+      <DeleteAccountModal open={delOpen} onOpenChange={setDelOpen} username={account.username} />
     </Card>
   );
 }

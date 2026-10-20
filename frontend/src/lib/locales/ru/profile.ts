@@ -125,4 +125,13 @@ export const profile: Dict = {
   "The code has expired. Send a new one.": "Срок действия кода истёк. Запросите новый.",
   "Email can't be sent right now. Try again later.": "Сейчас не удаётся отправить письмо. Попробуйте позже.",
   "Too many attempts. Wait a minute and try again.": "Слишком много попыток. Подождите минуту и попробуйте снова.",
+
+  // delete account
+  "Delete account": "Удалить аккаунт",
+  "Removes the account and all of its data.": "Удаляет аккаунт и все его данные.",
+  "This permanently deletes your account and all of its data: finances, tasks, goals, habits and profile. It can't be undone.": "Аккаунт и все его данные — финансы, задачи, цели, привычки и профиль — будут удалены навсегда. Отменить это нельзя.",
+  "Type your login “{login}” to confirm": "Для подтверждения введите свой логин «{login}»",
+  "Delete forever": "Удалить навсегда",
+  "Your account was deleted": "Аккаунт удалён",
+  "This is the only account, so it can't be deleted.": "Это единственный аккаунт, его нельзя удалить.",
 };

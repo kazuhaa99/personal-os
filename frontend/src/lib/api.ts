@@ -66,7 +66,7 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
-  del: <T = void>(path: string) => request<T>("DELETE", path),
+  del: <T = void>(path: string, body?: unknown) => request<T>("DELETE", path, body),
   async download(path: string, params: Query, filename: string) {
     const token = getToken();
     const res = await fetch(`/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
