@@ -14,13 +14,23 @@ Overview ─ Tasks ─ Goals & Projects ─ Habits ─ Finances (Transactions ·
 ### Option A — Docker Compose (recommended for daily use)
 
 ```bash
-cp .env.example .env          # then set a long random POSTGRES_PASSWORD
+cp .env.example .env          # then set long random POSTGRES_PASSWORD and POS_APP_DB_PASSWORD
 docker compose up -d --build
 open http://127.0.0.1:8080
 ```
 
 Migrations run automatically when the API container starts. Data lives in the
 `pgdata` volume and survives restarts (`docker compose down` keeps it; `down -v` deletes it).
+
+The API connects as the restricted role `personal_os_app` (so row-level security applies, see
+[Security](#security--privacy--deployment-model-and-limitations)); `backend/db-init/10-app-role.sh` creates it
+from `POS_APP_DB_PASSWORD` when the volume is first initialised. **Upgrading an existing volume**: init scripts
+don't run again, so create the role once, then restart the API (its migrations grant the role access):
+
+```bash
+docker compose exec db psql -U personal_os -d personal_os   -c "CREATE ROLE personal_os_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '<POS_APP_DB_PASSWORD>'"
+docker compose restart api
+```
 
 > The compose file was written for this project but could not be executed in the
 > environment where the app was built (no Docker daemon there). The same
@@ -35,12 +45,16 @@ Requirements: Python 3.12+ (tested on 3.13), Node 20+ (tested on 22), PostgreSQL
 sudo -u postgres psql -c "CREATE USER personal_os WITH PASSWORD 'personal_os_dev' CREATEDB;"
 sudo -u postgres psql -c "CREATE DATABASE personal_os OWNER personal_os;"
 sudo -u postgres psql -c "CREATE DATABASE personal_os_test OWNER personal_os;"   # for tests
+# the API's restricted role (row-level security applies to it; migrations run as personal_os)
+sudo -u postgres psql -c "CREATE ROLE personal_os_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'personal_os_app_dev';"
 
 # 2. Backend
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r backend/requirements-dev.txt
 cd backend
-cp .env.example .env                       # adjust if your DB differs
+cp .env.example .env                       # adjust if your DB differs; for RLS set
+#   POS_DATABASE_URL=postgresql+psycopg://personal_os_app:personal_os_app_dev@localhost:5432/personal_os
+#   POS_MIGRATION_DATABASE_URL=postgresql+psycopg://personal_os:personal_os_dev@localhost:5432/personal_os
 alembic upgrade head
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
@@ -70,6 +84,17 @@ tasks, finances, habits, settings and profile.
   `POS_SMTP_PASSWORD=<app password>` (host/port/user default to `smtp.gmail.com:587` / `spokeesofficial@gmail.com`).
   Never commit it. Without it, registration is closed (the login page hides "Create account"). For local testing
   `POS_MAIL_DEV_LOG=true` prints the emails, codes included, to the API log instead of sending them.
+- **Deleting an account**: Profile → Login & security → *Delete account*. It asks for the current password and for
+  the login to be typed, then removes the account and everything it owns (finances, tasks, goals, habits, profile)
+  and signs out. The last remaining account can't be deleted.
+
+### Install as an app (PWA)
+
+The production build (`npm run build`, Docker) is an installable PWA: web app manifest, icons, `standalone`
+display, iOS home-screen meta tags and safe-area padding for the notch. Its service worker (`public/sw.js`, production
+only) caches the static app — hashed bundles, icons, wallpapers — but **never anything under `/api`**: finances and
+all other data always come from the network. Without a connection, pages show an offline notice. Installing needs
+`localhost` or HTTPS.
 
 ### Try it with demo data
 
@@ -92,7 +117,8 @@ The app uses **Premium Native** (concept D from the design lab) as its structure
   (max 2560 px, JPEG) and kept in this browser's IndexedDB only — never uploaded to the server.
 - **Languages**: English, Русский, 한국어 (toolbar globe menu, Settings, ⌘K, or the login screen). Dates use the
   matching date-fns locale and plurals use `Intl.PluralRules`. Server-generated insights follow the
-  `Accept-Language` header. Dictionaries live in `frontend/src/lib/locales/<lang>/`; English source strings are the keys,
+  `Accept-Language` header, and so do server error messages (validation and business rules, in
+  `backend/app/services/error_text.py`; a test fails if a raised message has no RU/KO entry). Dictionaries live in `frontend/src/lib/locales/<lang>/`; English source strings are the keys,
   so a missing entry falls back to English. `npm run i18n:check` lists any key without a Russian or Korean entry.
 - **⌘K / Ctrl+K command palette**: navigate, create, switch appearance, and search real transactions and tasks.
 - Motion: blurred cross-fades between pages, spring dialogs, animated selection pills in the sidebar and segmented controls.
@@ -111,6 +137,12 @@ Details: [`frontend/src/design-lab/README.md`](frontend/src/design-lab/README.md
 ```bash
 # Backend (uses the separate personal_os_test database; refuses to run against any DB without "test" in its name)
 cd backend && ../.venv/bin/python -m pytest -q
+# … the same suite as the restricted role, with row-level security in force (recommended):
+POS_DATABASE_URL=postgresql+psycopg://personal_os_app:<pw>@localhost:5432/personal_os_test POS_TEST_OWNER_DATABASE_URL=postgresql+psycopg://personal_os:<pw>@localhost:5432/personal_os_test   ../.venv/bin/python -m pytest -q
+
+# End-to-end (Playwright on the installed Chrome; builds the app and starts its own API on :8001
+# with a fresh personal_os_e2e database — set E2E_OWNER_URL / E2E_APP_URL if your DB differs)
+cd frontend && npm run e2e
 
 # Frontend
 cd frontend && npm test            # vitest
@@ -118,10 +150,10 @@ cd frontend && npm run typecheck   # tsc
 cd frontend && npm run build
 ```
 
-Current status: **76 backend tests, 20 frontend tests passing**; typecheck and production build clean.
-The UI was additionally driven end-to-end in Chromium (account → expense → transfer → edit/delete →
-CSV import → budget → task → habit → goal → overview), with no console errors and no
-horizontal overflow at 390 px width.
+Current status: **231 backend tests** (228 + 3 RLS checks that need the restricted role), **22 frontend tests**
+and **6 end-to-end scenarios** passing — sign-out back to the login page, registration with the email code,
+sign-in by email, saving the profile, server errors in Russian, deleting an account, phone layout without
+sideways scroll. Typecheck and production build clean.
 
 Backend coverage includes: transaction CRUD and balance recalculation, transfers (both sides,
 excluded from income/expense), currency separation, archived accounts, zero/negative/3-decimal
@@ -208,7 +240,9 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL (`postgresql+psycopg://…`) |
+| `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL the API uses (`postgresql+psycopg://…`); should be the restricted role |
+| `POS_MIGRATION_DATABASE_URL` | = `POS_DATABASE_URL` | Owner URL for `alembic` (tables, policies, grants) |
+| `POS_APP_DB_ROLE` | `personal_os_app` | Role that migrations grant data access to |
 | `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed origins (`*` is ignored) |
 | `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / `adminuser123` | First account, created only if no users exist yet. **Change the password before exposing the app** |
 | `POS_ALLOW_REGISTRATION` | `true` | Let new people create accounts (needs working email) |
@@ -223,7 +257,8 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 | `POS_API_TOKEN` | empty | Optional bearer token for scripts/integrations (`Authorization: Bearer <token>`) |
 | `POS_DEFAULT_TIMEZONE` | `Asia/Almaty` | Initial timezone (changeable in Settings) |
 | `POS_LOG_LEVEL` | `INFO` | Logging level |
-| `POSTGRES_PASSWORD` | — (required for compose) | Database password |
+| `POSTGRES_PASSWORD` | — (required for compose) | Database owner password |
+| `POS_APP_DB_PASSWORD` | — (required for compose) | Password of `personal_os_app` (letters/digits: it goes into a URL) |
 
 The default local database password (`personal_os_dev`) is for development on your own machine only.
 
@@ -253,6 +288,11 @@ alembic check                                      # verify models and migration
 - **Data isolation** is enforced centrally (`backend/app/tenancy.py`): every ORM read, update and delete is
   filtered to the signed-in user, new rows are stamped with that user, and a foreign key pointing at another
   user's row is rejected. With no signed-in user, queries match nothing. Tests cover cross-account access.
+- **Row-level security** in Postgres is the second, independent wall (`backend/app/rls.py`, migration 0003):
+  every per-user table has `FORCE ROW LEVEL SECURITY` and a policy `user_id = app.user_id`, which the API sets
+  before each statement. Even raw SQL can't read or write another user's rows, and with nobody signed in nothing
+  is visible. It only applies to a non-superuser role without `BYPASSRLS` — hence the separate `personal_os_app`
+  role; the API logs a warning at startup if it connects as a role that would bypass RLS.
 - **The default `admin` / `adminuser123` is public knowledge** (it is in this README) — change it, set
   `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS (reverse proxy) or a VPN such as
   Tailscale before exposing it beyond localhost.
@@ -276,5 +316,7 @@ alembic check                                      # verify models and migration
 - Only manual/CSV data entry — no bank API sync.
 - No backup/restore UI yet: use `pg_dump personal_os > backup.sql` (and test restoring it).
 - Possible next steps: backup export, transaction splits, cross-currency accounts with FX rates,
-  net-worth tracking with manual assets, PWA/offline quick-add, optional AI analysis on top of the
+  net-worth tracking with manual assets, offline quick-add, optional AI analysis on top of the
   insights module.
+- The Docker setup (roles, init script) is written but was not run here — Docker Desktop doesn't start on the
+  machine this was developed on; everything else was verified with a local PostgreSQL.
