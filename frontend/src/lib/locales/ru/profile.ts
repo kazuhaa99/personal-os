@@ -76,6 +76,8 @@ export const profile: Dict = {
   "Monthly income": "Доход за месяц",
   "Expected per month": "Ожидается в месяц",
   "Additional": "Дополнительный",
+  "Salary only": "Только зарплата",
+  "Additional income only": "Только дополнительный доход",
   "Received this month": "Получено в этом месяце",
   "{amount} above the plan": "На {amount} больше плана",
   "Expected = salary + active additional income, converted to a monthly amount. Received counts income transactions in accounts of the same currency.": "Ожидаемый доход — зарплата и активные дополнительные доходы в пересчёте на месяц. Полученный — доходные операции по счетам в той же валюте.",

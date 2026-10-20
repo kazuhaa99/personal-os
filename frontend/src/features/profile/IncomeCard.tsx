@@ -183,7 +183,7 @@ function SourcesCard({ sources }: { sources: IncomeSource[] }) {
     <Card>
       <CardHeader title={<span className="inline-flex items-center gap-2"><Wallet className="h-4 w-4 text-ink-3" /> {t("Additional income")}</span>}
         subtitle={t("Only active sources count towards the monthly estimate.")}
-        action={sources.length > 0 && <Button size="sm" onClick={add}><Plus className="h-3.5 w-3.5" /> {t("Add income")}</Button>} />
+        action={sources.length > 0 && <Button size="sm" onClick={add} aria-label={t("Add income")} className="shrink-0"><Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("Add income")}</span></Button>} />
       {sources.length ? (
         <ul className="pb-2"><AnimatePresence initial={false}>
           {sources.map((s) => <SourceRow key={s.id} source={s} onEdit={() => { setEditing(s); setOpen(true); }} />)}

@@ -76,6 +76,8 @@ export const profile: Dict = {
   "Monthly income": "월 수입",
   "Expected per month": "월 예상 수입",
   "Additional": "추가",
+  "Salary only": "급여만 있어요",
+  "Additional income only": "추가 수입만 있어요",
   "Received this month": "이번 달 받은 금액",
   "{amount} above the plan": "계획보다 {amount} 더 받았어요",
   "Expected = salary + active additional income, converted to a monthly amount. Received counts income transactions in accounts of the same currency.": "예상 수입은 급여와 활성화된 추가 수입을 월 기준으로 환산한 금액이에요. 받은 금액은 같은 통화 계좌의 수입 거래를 합산해요.",

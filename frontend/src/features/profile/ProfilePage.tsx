@@ -25,7 +25,7 @@ export function ProfilePage() {
           <motion.div {...rise(1)}><PersonalCard profile={data} /></motion.div>
           <motion.div {...rise(2)} className="space-y-5"><IncomeSection profile={data} /></motion.div>
         </div>
-        <div className="space-y-5 min-w-0 lg:sticky lg:top-4">
+        <div className="space-y-5 min-w-0">
           <motion.div {...rise(2)}><MonthlySummary monthly={data.monthly} /></motion.div>
           <motion.div {...rise(3)}><SecurityCard account={data.account} /></motion.div>
         </div>

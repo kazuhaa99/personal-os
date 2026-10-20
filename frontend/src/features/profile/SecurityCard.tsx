@@ -83,7 +83,7 @@ function EmailChange({ account }: { account: AuthUser }) {
           confirmCode.mutate(code, { onError: fail });
         }}>
         <p className="text-sm text-ink-2">
-          {t("Enter the code we sent to")} <b className="font-medium text-ink break-all">{pending}</b>
+          {t("Enter the code we sent to")} <b className="font-medium text-ink [overflow-wrap:anywhere]">{pending}</b>
         </p>
         <Field label={t("Confirmation code")} error={error}>{(id) => (
           <Input id={id} autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="\d*" maxLength={6} placeholder="••••••"
@@ -184,7 +184,7 @@ export function SecurityCard({ account }: { account: AuthUser }) {
         </Row>
         <Row icon={<Mail className="h-4 w-4" />} label={t("Email")}>
           <div className="flex flex-wrap items-center gap-2">
-            {account.email ? <span className="break-all">{account.email}</span> : <span className="text-ink-3">{t("No email")}</span>}
+            {account.email ? <span className="[overflow-wrap:anywhere]">{account.email}</span> : <span className="text-ink-3">{t("No email")}</span>}
             {account.email && <Badge tone={account.email_verified ? "good" : "warn"}>{account.email_verified ? t("Confirmed") : t("Not confirmed")}</Badge>}
             {account.pending_email && <Badge tone="accent">{t("Change pending")}</Badge>}
           </div>
