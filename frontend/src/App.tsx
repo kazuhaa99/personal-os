@@ -13,6 +13,7 @@ import { TransactionsPage } from "./features/finance/TransactionsPage";
 import { GoalsPage } from "./features/goals/GoalsPage";
 import { HabitsPage } from "./features/habits/HabitsPage";
 import { OverviewPage } from "./features/overview/OverviewPage";
+import { ProfilePage } from "./features/profile/ProfilePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 
@@ -38,6 +39,7 @@ export function App() {
         </Route>
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

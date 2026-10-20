@@ -20,7 +20,7 @@ describe("AuthGate", () => {
     session = true;
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.startsWith("/api/auth/me")) return json({ authenticated: session, username: session ? "me" : null, auth_enabled: true });
+      if (url.startsWith("/api/auth/me")) return json({ authenticated: session, user: session ? { username: "me" } : null, registration_open: false, auth_enabled: true });
       if (url.startsWith("/api/auth/logout") && init?.method === "POST") { session = false; return new Response(null, { status: 204 }); }
       return json({ detail: "Sign in required" }, 401);
     }));

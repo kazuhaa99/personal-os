@@ -27,6 +27,7 @@ from app.services.goals import compute_progress
 from app.services.i18n import category_name, current, fmt_day, fmt_month, plural
 from app.services.money import ZERO, percent, q
 from app.services.settings import get_app_settings
+from app.tenancy import current_user_id
 
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 
@@ -288,7 +289,7 @@ def compute(db: Session, today: date | None = None, include_dismissed: bool = Fa
 
 
 def dismiss(db: Session, key: str) -> None:
-    if db.get(InsightDismissal, key) is None:
+    if db.get(InsightDismissal, (current_user_id(), key)) is None:
         db.add(InsightDismissal(key=key))
         db.commit()
 
