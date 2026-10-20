@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from app import rls
 from app.config import get_settings
 
 NAMING_CONVENTION = {
@@ -19,6 +20,7 @@ class Base(DeclarativeBase):
 
 
 engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+rls.install(engine)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

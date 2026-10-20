@@ -5,8 +5,9 @@ from datetime import date
 
 from sqlalchemy import text
 
-from app.db import Base, engine
+from app.db import Base
 from app.tenancy import Owned
+from tests.conftest import owner_engine as engine  # sees every user's rows, even under RLS
 from tests.test_accounts_auth import outbox, register  # noqa: F401  (fixture)
 
 ADMIN = {"identifier": "admin", "password": "adminuser123"}
