@@ -9,7 +9,7 @@ const USER = { login: `e2e_${Date.now().toString(36)}`, password: "e2e correct h
 const EMAIL = `${USER.login}@example.com`;
 
 async function signIn(page: Page, identifier: string, password: string) {
-  await page.goto("/");
+  await page.goto("./");
   await page.getByLabel("Username or email").fill(identifier);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -45,7 +45,7 @@ test("signing out returns to the login page", async ({ page }) => {
 });
 
 test("register, confirm the email code, sign in by email", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("./");
   await page.getByRole("button", { name: "Create one" }).click();
   await page.getByLabel("Username", { exact: true }).fill(USER.login); // exact: the sign-in form is still fading out
   await page.getByLabel("Email", { exact: true }).fill(EMAIL);
@@ -64,7 +64,7 @@ test("register, confirm the email code, sign in by email", async ({ page }) => {
 
 test("profile: personal info is saved", async ({ page }) => {
   await signIn(page, USER.login, USER.password);
-  await page.locator('a[href="/profile"]').first().click();
+  await page.locator('a[href$="/profile"]').first().click();
   await expect(page.getByText(USER.login).first()).toBeVisible();
   const first = page.getByLabel("First name");
   await first.fill("Ada");
@@ -76,8 +76,8 @@ test("profile: personal info is saved", async ({ page }) => {
 });
 
 test("server errors come back in the chosen language", async ({ page }) => {
-  await page.goto("/");
-  const r = await page.request.post("/api/auth/login", { data: { identifier: "x" }, headers: { "Accept-Language": "ru" } });
+  await page.goto("./");
+  const r = await page.request.post("api/auth/login", { data: { identifier: "x" }, headers: { "Accept-Language": "ru" } });
   expect(r.status()).toBe(422);
   expect((await r.json()).error.message).toBe("Пароль: Обязательное поле");
 
@@ -91,7 +91,7 @@ test("server errors come back in the chosen language", async ({ page }) => {
 
 test("delete account removes it for good", async ({ page }) => {
   await signIn(page, USER.login, USER.password);
-  await page.locator('a[href="/profile"]').first().click();
+  await page.locator('a[href$="/profile"]').first().click();
   await page.getByRole("button", { name: "Delete account" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Current password").fill(USER.password);
@@ -112,4 +112,31 @@ test("phone width: no sideways scroll, tab bar visible", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test.describe("PWA under its own path", () => {
+  test.use({ serviceWorkers: "allow" });
+
+  test("service worker is scoped to the app and never caches the API", async ({ page, baseURL }) => {
+    const base = new URL(baseURL!).pathname; // "/" or "/prefix/"
+    await page.goto("./");
+    const sw = await page.evaluate(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      await new Promise((r) => setTimeout(r, 500));
+      const keys = await caches.keys();
+      const urls = (await Promise.all(keys.map(async (k) => (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname)))).flat();
+      return { scope: new URL(reg.scope).pathname, urls };
+    });
+    expect(sw.scope).toBe(base); // a prefixed app must not control the host site's other pages
+    expect(sw.urls.length).toBeGreaterThan(0);
+    expect(sw.urls.every((u) => u.startsWith(base))).toBe(true);
+    expect(sw.urls.some((u) => u.startsWith(`${base}api/`))).toBe(false);
+
+    const manifestHref = await page.locator('link[rel="manifest"]').getAttribute("href");
+    expect(manifestHref).toBe(`${base}manifest.webmanifest`);
+    const manifest = await (await page.request.get(manifestHref!)).json();
+    for (const icon of manifest.icons) {
+      expect((await page.request.get(new URL(icon.src, new URL(manifestHref!, baseURL)).href)).status()).toBe(200);
+    }
+  });
 });

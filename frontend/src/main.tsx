@@ -7,13 +7,15 @@ import { App } from "./App";
 import { ConfirmProvider } from "./components/ui/dialog";
 import { LangProvider } from "./lib/i18n";
 import { ThemeProvider, useTheme } from "./lib/theme";
+import { asset, BASE } from "./lib/base";
 import "@fontsource-variable/inter";
 import "./index.css";
 
 // PWA: static-only service worker (public/sw.js). Production only, so it never shadows Vite's dev server.
+// Scoped to our own path: under a shared domain it must never control the host site's other pages.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    navigator.serviceWorker.register(asset("sw.js"), { scope: BASE }).catch(() => undefined);
   });
 }
 
@@ -31,7 +33,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
     <QueryClientProvider client={queryClient}>
     <LangProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={BASE}>
         <ConfirmProvider>
           <App />
         </ConfirmProvider>

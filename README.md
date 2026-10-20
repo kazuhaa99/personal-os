@@ -88,6 +88,29 @@ tasks, finances, habits, settings and profile.
   the login to be typed, then removes the account and everything it owns (finances, tasks, goals, habits, profile)
   and signs out. The last remaining account can't be deleted.
 
+### Serving under a path (e.g. `https://host/personalos/`)
+
+Set `POS_BASE_PATH=/personalos/` in `.env` (with both slashes) and `POS_COOKIE_SECURE=true` behind HTTPS, then
+`docker compose up -d --build`. The frontend is built for that prefix (links, API, icons, PWA), the web
+container strips the prefix itself (so `http://127.0.0.1:8080/personalos/` works directly too), and the session
+cookie is limited to the path. In the host's reverse proxy pass the path through unchanged and overwrite
+`X-Forwarded-For` (the API uses it to rate-limit sign-ins per client):
+
+```nginx
+location /personalos/ {
+    proxy_pass http://127.0.0.1:8080;          # no URI part: the prefix is kept
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 6m;
+}
+```
+
+The service worker registers with the prefix as its scope, so it never controls the host site's other pages.
+Sharing a domain still means sharing an origin (localStorage, script-readable cookies) with the host site — a
+separate subdomain isolates the two completely. `E2E_BASE=/personalos/ npm run e2e` runs the browser tests
+against a prefixed build.
+
 ### Install as an app (PWA)
 
 The production build (`npm run build`, Docker) is an installable PWA: web app manifest, icons, `standalone`
@@ -258,6 +281,8 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 | `POS_DEFAULT_TIMEZONE` | `Asia/Almaty` | Initial timezone (changeable in Settings) |
 | `POS_LOG_LEVEL` | `INFO` | Logging level |
 | `POSTGRES_PASSWORD` | — (required for compose) | Database owner password |
+| `POS_BASE_PATH` | `/` | Compose: serve under a path prefix, e.g. `/personalos/` (also the cookie path) |
+| `POS_COOKIE_PATH` | `/` | Session cookie path (compose sets it from `POS_BASE_PATH`) |
 | `POS_APP_DB_PASSWORD` | — (required for compose) | Password of `personal_os_app` (letters/digits: it goes into a URL) |
 
 The default local database password (`personal_os_dev`) is for development on your own machine only.

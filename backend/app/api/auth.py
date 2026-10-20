@@ -42,7 +42,7 @@ def _sign_in(response: Response, db: Session, user: User) -> dict:
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     response.set_cookie(svc.SESSION_COOKIE, svc.create_session(user), max_age=s.session_days * 86400,
-                        httponly=True, samesite="strict", secure=s.cookie_secure, path="/")
+                        httponly=True, samesite="strict", secure=s.cookie_secure, path=s.cookie_path)
     return {"authenticated": True, "user": svc.user_out(user)}
 
 
@@ -177,7 +177,7 @@ def reset_password(body: ResetIn, request: Request, response: Response, db: Sess
 
 @router.post("/logout", status_code=204)
 def logout(response: Response):
-    response.delete_cookie(svc.SESSION_COOKIE, path="/")
+    response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")
 
 
 # ------------------------------------------------------------------ signed-in account management
@@ -235,7 +235,7 @@ def delete_account(body: DeleteAccountIn, request: Request, response: Response, 
     _throttle(request, "delete-account")
     user = db.get(User, current_user_id())
     svc.delete_account(db, user, body.password)
-    response.delete_cookie(svc.SESSION_COOKIE, path="/")
+    response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")
 
 
 @router.delete("/email/change", dependencies=[Depends(require_user)])
