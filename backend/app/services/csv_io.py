@@ -29,6 +29,8 @@ from sqlalchemy.orm import Session
 from app.errors import ValidationFailed
 from app.models import Account, Category, Transaction
 from app.schemas.finance import TransactionCreate
+from app.services import i18n
+from app.services.error_text import pydantic_message, translate
 from app.services.money import parse_amount
 from app.services.transactions import TxFilter, _validate, iter_filtered
 
@@ -145,11 +147,13 @@ def import_csv(db: Session, text: str, *, dry_run: bool) -> dict:
             _validate(db, type=data.type, account_id=data.account_id, to_account_id=data.to_account_id,
                       category_id=data.category_id, tx_date=data.date)
         except ValidationFailed as exc:
-            rejected.append({"row": idx, "reason": exc.message, "raw": raw})
+            rejected.append({"row": idx, "reason": translate(exc.message, i18n.current()), "raw": raw})
             continue
         except ValueError as exc:  # includes pydantic.ValidationError
-            reason = str(exc).splitlines()[0] if not hasattr(exc, "errors") else "; ".join(
-                e["msg"] for e in exc.errors())  # type: ignore[attr-defined]
+            lang = i18n.current()
+            reason = translate(str(exc).splitlines()[0], lang) if not hasattr(exc, "errors") else "; ".join(
+                (e["msg"].removeprefix("Value error, ") if lang == "en" else pydantic_message(e, lang))
+                for e in exc.errors())  # type: ignore[attr-defined]
             rejected.append({"row": idx, "reason": reason, "raw": raw})
             continue
         parsed.append((idx, raw, data))
@@ -168,7 +172,7 @@ def import_csv(db: Session, text: str, *, dry_run: bool) -> dict:
                        data.description, data.payee)
         if existing[key] > 0:
             existing[key] -= 1
-            duplicates.append({"row": idx, "reason": "matches an existing transaction", "raw": raw})
+            duplicates.append({"row": idx, "reason": translate("matches an existing transaction", i18n.current()), "raw": raw})
         else:
             to_insert.append(data)
 
