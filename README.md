@@ -138,6 +138,10 @@ The app uses **Premium Native** (concept D from the design lab) as its structure
 - Light, dark or "match system" plus five wallpapers (Settings → Appearance), remembered per browser.
   **Your own photo**: upload or drag an image onto Settings → Appearance. It is downscaled in the browser
   (max 2560 px, JPEG) and kept in this browser's IndexedDB only — never uploaded to the server.
+- **Colours from the wallpaper** (Settings → Appearance, on by default): the accent takes the wallpaper's most vivid
+  recurring colour (not its average), with lightness adjusted per theme to keep WCAG AA 4.5:1 for text and button ink;
+  colourless photos keep the standard blue. Optionally the sidebar/toolbar and hero glass get a light tint of it.
+  Charts keep their own colours. The colours are remembered and applied before React starts, so there is no flash.
 - **Languages**: English, Русский, 한국어 (toolbar globe menu, Settings, ⌘K, or the login screen). Dates use the
   matching date-fns locale and plurals use `Intl.PluralRules`. Server-generated insights follow the
   `Accept-Language` header, and so do server error messages (validation and business rules, in

@@ -100,7 +100,7 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
   return (
     <div className="flex h-full flex-col px-2.5 pb-3">
       <div className="flex h-14 items-center gap-2.5 px-2">
-        <div className="h-7 w-7 rounded-[8px] grid place-items-center text-white text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(10_112_240/0.35)]" style={{ background: "linear-gradient(145deg, #4aa3ff, #0a62e0)" }}>P</div>
+        <div className="h-7 w-7 rounded-[8px] grid place-items-center text-accent-ink text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(var(--accent)/0.35)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>
         <span className="flex-1 text-[15px] font-semibold tracking-tight">Personal OS</span>
         {onCollapse && <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t("Hide sidebar")} onClick={onCollapse}><PanelLeftClose className="h-4 w-4" /></Button>}
       </div>
@@ -143,7 +143,7 @@ export function Avatar({ src, name, className }: { src?: string | null; name: st
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
   return src
     ? <img src={src} alt="" className={cn("rounded-full object-cover ring-1 ring-line/10", className)} />
-    : <span className={cn("grid place-items-center rounded-full text-white font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, #7b8cff, #0a62e0)" }}>{initials}</span>;
+    : <span className={cn("grid place-items-center rounded-full text-accent-ink font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 65%, #7b8cff), rgb(var(--accent)))" }}>{initials}</span>;
 }
 
 function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {

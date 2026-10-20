@@ -105,6 +105,24 @@ test("delete account removes it for good", async ({ page }) => {
   await expect(page.getByText("Wrong username or password")).toBeVisible();
 });
 
+test("accent colour follows the wallpaper and can be switched off", async ({ page }) => {
+  await signIn(page, ADMIN.login, ADMIN.password);
+  await expect(overview(page)).toBeVisible(); // let the sign-in finish before navigating
+  await page.goto("./settings");
+  await page.getByRole("radio", { name: "Moraine Lake" }).click(); // a wallpaper with clear colour
+  const accent = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--accent"));
+  await expect.poll(accent).not.toBe("");
+  const fromWallpaper = await accent();
+  await page.getByRole("tab", { name: "Standard blue" }).click();
+  await expect.poll(accent).toBe("");
+  await page.getByRole("tab", { name: "From wallpaper" }).click();
+  await expect.poll(accent).toBe(fromWallpaper);
+  // remembered for the next visit, applied before React starts
+  await page.reload();
+  expect(await accent()).toBe(fromWallpaper);
+  await signOut(page);
+});
+
 test("phone width: no sideways scroll, tab bar visible", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, ADMIN.login, ADMIN.password);

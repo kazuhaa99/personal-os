@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import { LANGUAGES, t, useLang, type Lang } from "@/lib/i18n";
 import { useAction, useSettings } from "@/lib/queries";
-import { useTheme, WALLPAPERS, type ThemeMode } from "@/lib/theme";
+import { useTheme, WALLPAPERS, type AccentMode, type ThemeMode } from "@/lib/theme";
 import { MAX_UPLOAD_BYTES } from "@/lib/wallpaperStore";
 import { useAuth } from "@/features/auth/AuthGate";
 import { useConfirm } from "@/components/ui/dialog";
@@ -25,7 +25,7 @@ function uploadError(e: unknown) {
 }
 
 function AppearanceCard() {
-  const { mode, setMode, wallpaper, setWallpaper, custom, uploadWallpaper, removeCustomWallpaper } = useTheme();
+  const { mode, setMode, wallpaper, setWallpaper, custom, uploadWallpaper, removeCustomWallpaper, accentMode, setAccentMode, tint, setTint, vivid } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -124,6 +124,25 @@ function AppearanceCard() {
           )}
         </div>
         <p className="text-2xs text-ink-3">{t("Tip: drop an image onto this card to use it as wallpaper. Up to {mb} MB.", { mb: MAX_MB })}</p>
+
+        <div className="space-y-2.5 border-t hairline pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-sm text-ink">
+              <span aria-hidden className="h-4 w-4 rounded-full bg-accent ring-1 ring-black/10" />
+              {t("Accent colour")}
+            </span>
+            <Segmented<AccentMode> size="sm" value={accentMode} onChange={setAccentMode}
+              options={[{ value: "wallpaper", label: t("From wallpaper") }, { value: "default", label: t("Standard blue") }]} />
+          </div>
+          {accentMode === "wallpaper" && vivid === null && (
+            <p className="text-2xs text-ink-3">{t("This wallpaper has hardly any colour, so the standard accent is used.")}</p>
+          )}
+          <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer select-none">
+            <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={tint} onChange={(e) => setTint(e.target.checked)} />
+            {t("Tint the glass with the wallpaper colour")}
+          </label>
+          <p className="text-2xs text-ink-3">{t("Buttons, links and highlights take the most vivid colour of the wallpaper, adjusted so text stays readable. Charts keep their own colours.")}</p>
+        </div>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" tabIndex={-1}
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void upload(f); }} />
       </div>

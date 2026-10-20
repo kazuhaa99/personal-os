@@ -241,4 +241,12 @@ export const more: Dict = {
   "Privacy": "개인정보",
   "Personal OS stores everything in your own PostgreSQL database. The API listens on localhost by default and nothing is sent to external services.": "Personal OS는 모든 데이터를 내 PostgreSQL 데이터베이스에 저장해요. API는 기본적으로 localhost에서만 동작하며 외부 서비스로 아무것도 보내지 않아요.",
   "Running locally is not by itself “secure”: anyone with access to this computer, the database, or an unprotected port can read your data. See the README for the deployment model and its limitations.": "로컬 실행만으로 ‘안전’한 것은 아니에요. 이 컴퓨터, 데이터베이스, 보호되지 않은 포트에 접근할 수 있는 사람은 데이터를 읽을 수 있어요. 배포 모델과 한계는 README를 참고하세요.",
+
+  // wallpaper colours
+  "Accent colour": "강조 색상",
+  "From wallpaper": "배경화면에서",
+  "Standard blue": "기본 파랑",
+  "This wallpaper has hardly any colour, so the standard accent is used.": "이 배경화면에는 색이 거의 없어 기본 강조 색상을 사용해요.",
+  "Tint the glass with the wallpaper colour": "유리 표면에 배경화면 색 입히기",
+  "Buttons, links and highlights take the most vivid colour of the wallpaper, adjusted so text stays readable. Charts keep their own colours.": "버튼, 링크, 강조 표시는 배경화면에서 가장 선명한 색을 가져와 글자가 잘 읽히도록 조정해요. 차트는 원래 색을 유지해요.",
 };
