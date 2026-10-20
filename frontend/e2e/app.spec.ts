@@ -1,0 +1,115 @@
+import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+// Runs in order against a fresh database; each test leaves the browser signed out.
+test.describe.configure({ mode: "serial" });
+
+const ADMIN = { login: "e2eadmin", password: process.env.E2E_ADMIN_PASSWORD! };
+const USER = { login: `e2e_${Date.now().toString(36)}`, password: "e2e correct horse" };
+const EMAIL = `${USER.login}@example.com`;
+
+async function signIn(page: Page, identifier: string, password: string) {
+  await page.goto("/");
+  await page.getByLabel("Username or email").fill(identifier);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+const overview = (page: Page) => page.getByRole("heading", { name: "Overview" });
+
+async function signOut(page: Page) {
+  await page.getByRole("button", { name: "Sign out" }).first().click();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(overview(page)).toBeHidden();
+}
+
+/** The API runs with POS_MAIL_DEV_LOG: confirmation emails land in its log. */
+async function codeFor(email: string): Promise<string> {
+  let code = "";
+  await expect.poll(() => {
+    const log = readFileSync("e2e/.out/api.log", "utf8");
+    const at = log.lastIndexOf(`email to ${email}`);
+    code = at >= 0 ? (log.slice(at).match(/\b(\d{6})\b/)?.[1] ?? "") : "";
+    return code;
+  }, { timeout: 15_000 }).not.toBe("");
+  return code;
+}
+
+test("signing out returns to the login page", async ({ page }) => {
+  await signIn(page, ADMIN.login, ADMIN.password);
+  await expect(overview(page)).toBeVisible();
+  await signOut(page);
+  // and it sticks after a reload: the session cookie is gone
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+});
+
+test("register, confirm the email code, sign in by email", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create one" }).click();
+  await page.getByLabel("Username", { exact: true }).fill(USER.login); // exact: the sign-in form is still fading out
+  await page.getByLabel("Email", { exact: true }).fill(EMAIL);
+  await page.getByLabel("Password (8+ characters)").fill(USER.password);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Check your email")).toBeVisible();
+
+  await page.getByLabel("Digit 1").fill(await codeFor(EMAIL)); // a full code typed/pasted into the first box submits
+  await expect(overview(page)).toBeVisible();
+  await signOut(page);
+
+  await signIn(page, EMAIL.toUpperCase(), USER.password);
+  await expect(overview(page)).toBeVisible();
+  await signOut(page);
+});
+
+test("profile: personal info is saved", async ({ page }) => {
+  await signIn(page, USER.login, USER.password);
+  await page.locator('a[href="/profile"]').first().click();
+  await expect(page.getByText(USER.login).first()).toBeVisible();
+  const first = page.getByLabel("First name");
+  await first.fill("Ada");
+  await page.getByRole("button", { name: "Save", exact: true }).first().click();
+  await expect(page.getByText("Profile saved")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("First name")).toHaveValue("Ada");
+  await signOut(page);
+});
+
+test("server errors come back in the chosen language", async ({ page }) => {
+  await page.goto("/");
+  const r = await page.request.post("/api/auth/login", { data: { identifier: "x" }, headers: { "Accept-Language": "ru" } });
+  expect(r.status()).toBe(422);
+  expect((await r.json()).error.message).toBe("Пароль: Обязательное поле");
+
+  await page.getByRole("radio", { name: "Русский" }).click();
+  await page.getByLabel("Логин или почта").fill(USER.login);
+  await page.getByLabel("Пароль", { exact: true }).fill("wrong password");
+  await page.getByRole("button", { name: "Войти" }).click();
+  await expect(page.getByText("Неверный логин или пароль")).toBeVisible();
+  await page.getByRole("radio", { name: "English" }).click();
+});
+
+test("delete account removes it for good", async ({ page }) => {
+  await signIn(page, USER.login, USER.password);
+  await page.locator('a[href="/profile"]').first().click();
+  await page.getByRole("button", { name: "Delete account" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Current password").fill(USER.password);
+  const confirm = dialog.getByRole("button", { name: "Delete forever" });
+  await expect(confirm).toBeDisabled(); // until the login is typed
+  await dialog.getByLabel(/Type your login/).fill(USER.login);
+  await confirm.click();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+
+  await signIn(page, USER.login, USER.password);
+  await expect(page.getByText("Wrong username or password")).toBeVisible();
+});
+
+test("phone width: no sideways scroll, tab bar visible", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, ADMIN.login, ADMIN.password);
+  await expect(overview(page)).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

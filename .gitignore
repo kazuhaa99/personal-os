@@ -10,3 +10,5 @@ backend/.env
 .DS_Store
 *.tsbuildinfo
 backend/.secret_key
+frontend/e2e/.out/
+frontend/playwright-report/
