@@ -1,3 +1,4 @@
+import { asset } from "@/lib/base";
 // Shared, clearly-labelled SAMPLE data for the design lab.
 // Identical across all four concepts so the comparison is about design, not content.
 // None of this touches the real API or database.
@@ -18,18 +19,18 @@ export const SCREENS: { id: Screen; label: string }[] = [
 export type ImageKey = "peaks" | "moraine" | "ocean" | "pier" | "maple" | "city" | "gears" | "walker" | "arches" | "stairs" | "earth" | "bridge";
 
 export const IMAGES: Record<ImageKey, { src: string; color: string; w: number; h: number }> = {
-  peaks: { src: "/media/peaks.jpg", color: "#50747a", w: 2400, h: 1629 },
-  moraine: { src: "/media/moraine.jpg", color: "#527f93", w: 1600, h: 1146 },
-  ocean: { src: "/media/ocean.jpg", color: "#93abb9", w: 1920, h: 1280 },
-  pier: { src: "/media/pier.jpg", color: "#a3b4bd", w: 640, h: 427 },
-  maple: { src: "/media/maple.jpg", color: "#575140", w: 640, h: 427 },
-  city: { src: "/media/city.jpg", color: "#7a6b60", w: 640, h: 427 },
-  gears: { src: "/media/gears.jpg", color: "#747980", w: 1280, h: 834 },
-  walker: { src: "/media/walker.jpg", color: "#f1eff0", w: 2000, h: 1000 },
-  arches: { src: "/media/arches.jpg", color: "#e0ddde", w: 1600, h: 800 },
-  stairs: { src: "/media/stairs.jpg", color: "#dbdbdb", w: 1600, h: 800 },
-  earth: { src: "/media/earth.jpg", color: "#0f0f1e", w: 2048, h: 1024 },
-  bridge: { src: "/media/bridge.jpg", color: "#5e6c72", w: 1024, h: 1024 },
+  peaks: { src: asset("/media/peaks.jpg"), color: "#50747a", w: 2400, h: 1629 },
+  moraine: { src: asset("/media/moraine.jpg"), color: "#527f93", w: 1600, h: 1146 },
+  ocean: { src: asset("/media/ocean.jpg"), color: "#93abb9", w: 1920, h: 1280 },
+  pier: { src: asset("/media/pier.jpg"), color: "#a3b4bd", w: 640, h: 427 },
+  maple: { src: asset("/media/maple.jpg"), color: "#575140", w: 640, h: 427 },
+  city: { src: asset("/media/city.jpg"), color: "#7a6b60", w: 640, h: 427 },
+  gears: { src: asset("/media/gears.jpg"), color: "#747980", w: 1280, h: 834 },
+  walker: { src: asset("/media/walker.jpg"), color: "#f1eff0", w: 2000, h: 1000 },
+  arches: { src: asset("/media/arches.jpg"), color: "#e0ddde", w: 1600, h: 800 },
+  stairs: { src: asset("/media/stairs.jpg"), color: "#dbdbdb", w: 1600, h: 800 },
+  earth: { src: asset("/media/earth.jpg"), color: "#0f0f1e", w: 2048, h: 1024 },
+  bridge: { src: asset("/media/bridge.jpg"), color: "#5e6c72", w: 1024, h: 1024 },
 };
 
 export interface Account { id: string; name: string; kind: string; balance: string; trend: number[] }

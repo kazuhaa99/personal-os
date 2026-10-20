@@ -6,6 +6,7 @@ import { DEMO_LABEL, SCREENS, type Screen } from "./data";
 import { ScaledFrame } from "./Frame";
 import { CONCEPTS, type ConceptMeta } from "./registry";
 import { ease, rise, stagger } from "./shared/motion";
+import { asset } from "@/lib/base";
 
 export function Gallery() {
   const location = useLocation();
@@ -44,7 +45,7 @@ export function Gallery() {
       {CONCEPTS.map((c, i) => <ConceptSection key={c.id} concept={c} index={i} />)}
 
       <footer className="lab-footer">
-        Design lab is isolated from the real app: <Link to="/">return to Personal OS</Link>. Photo credits: <a href="/media/CREDITS.md">CREDITS.md</a>.
+        Design lab is isolated from the real app: <Link to="/">return to Personal OS</Link>. Photo credits: <a href={asset("/media/CREDITS.md")}>CREDITS.md</a>.
       </footer>
     </div>
   );

@@ -1,4 +1,5 @@
 import { getLang, t } from "./i18n";
+import { BASE } from "./base";
 
 // Thin fetch wrapper. All requests go to the same origin (/api, proxied by Vite).
 
@@ -49,7 +50,7 @@ async function request<T>(method: string, path: string, body?: unknown, init: Re
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`/api${path}`, { method, headers, body: payload, ...init });
+  const res = await fetch(`${BASE}api${path}`, { method, headers, body: payload, ...init });
   if (res.status === 204) return undefined as T;
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await res.json() : await res.text();
@@ -69,7 +70,7 @@ export const api = {
   del: <T = void>(path: string, body?: unknown) => request<T>("DELETE", path, body),
   async download(path: string, params: Query, filename: string) {
     const token = getToken();
-    const res = await fetch(`/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const res = await fetch(`${BASE}api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!res.ok) throw new ApiError(res.status, t("Export failed ({status})", { status: res.status }));
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");

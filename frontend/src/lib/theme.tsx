@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { averageColor, clearWallpaper, loadWallpaper, prepareImage, saveWallpaper } from "./wallpaperStore";
+import { asset } from "./base";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type WallpaperId = "alpine" | "lake" | "ocean" | "night" | "none" | "custom";
 
 export const WALLPAPERS: { id: WallpaperId; label: string; src?: string; color: string }[] = [
-  { id: "alpine", label: "Alpine dusk", src: "/media/peaks.jpg", color: "#50747a" },
-  { id: "lake", label: "Moraine Lake", src: "/media/moraine.jpg", color: "#527f93" },
-  { id: "ocean", label: "Open ocean", src: "/media/ocean.jpg", color: "#93abb9" },
-  { id: "night", label: "Night Earth", src: "/media/earth.jpg", color: "#0f0f1e" },
+  { id: "alpine", label: "Alpine dusk", src: asset("/media/peaks.jpg"), color: "#50747a" },
+  { id: "lake", label: "Moraine Lake", src: asset("/media/moraine.jpg"), color: "#527f93" },
+  { id: "ocean", label: "Open ocean", src: asset("/media/ocean.jpg"), color: "#93abb9" },
+  { id: "night", label: "Night Earth", src: asset("/media/earth.jpg"), color: "#0f0f1e" },
   { id: "none", label: "Plain", color: "transparent" },
 ];
 

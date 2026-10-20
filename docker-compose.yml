@@ -34,13 +34,20 @@ services:
       POS_SMTP_PASSWORD: ${POS_SMTP_PASSWORD:-}
       POS_ALLOW_REGISTRATION: ${POS_ALLOW_REGISTRATION:-true}
       POS_DEFAULT_TIMEZONE: ${POS_DEFAULT_TIMEZONE:-Asia/Almaty}
+      # Keep the session cookie inside the app's path; Secure when served over HTTPS.
+      POS_COOKIE_PATH: ${POS_BASE_PATH:-/}
+      POS_COOKIE_SECURE: ${POS_COOKIE_SECURE:-false}
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
   web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Serve under a path prefix, e.g. /personalos/ (default: the site root).
+        VITE_BASE: ${POS_BASE_PATH:-/}
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
