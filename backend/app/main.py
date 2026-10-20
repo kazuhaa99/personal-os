@@ -11,7 +11,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api import auth, finance, planning, profile, system
 from app.api.deps import require_token
 from app.config import get_settings
-from app.db import SessionLocal
+from app import rls
+from app.db import SessionLocal, engine
 from app.errors import DomainError
 from app.services.auth import ensure_admin
 from app.services.error_text import field_label, pydantic_message, translate
@@ -27,6 +28,7 @@ log = logging.getLogger("personal_os")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    rls.check_role(engine)  # warns if this role would bypass row-level security
     with SessionLocal() as db:
         ensure_admin(db)
     yield

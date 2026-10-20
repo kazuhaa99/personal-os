@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="POS_", extra="ignore")
 
     database_url: str = "postgresql+psycopg://personal_os:personal_os_dev@localhost:5432/personal_os"
+    # Migrations run as the table owner; the app itself should use a non-superuser role so
+    # Postgres row-level security applies (see app/rls.py). Unset = use database_url.
+    migration_database_url: str | None = Field(default=None)
+    # The non-superuser role the app connects as; migrations grant it data access.
+    app_db_role: str = "personal_os_app"
     # Comma-separated list of allowed browser origins. Never "*".
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     # Optional shared secret. When set, every /api request must send

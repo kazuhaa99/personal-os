@@ -10,8 +10,10 @@ from datetime import date  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
 
+from app import rls  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.auth import ensure_admin, first_user_id  # noqa: E402
@@ -19,18 +21,28 @@ from app.tenancy import set_current_user  # noqa: E402
 
 assert "test" in str(engine.url.database), "tests must never run against the real database"
 
+# RLS mode: POS_DATABASE_URL is the restricted app role and POS_TEST_OWNER_DATABASE_URL the owner,
+# which builds the schema (with row-level security) and truncates between tests. Without it the
+# app's own connection does both, as before.
+_owner_url = os.environ.get("POS_TEST_OWNER_DATABASE_URL")
+owner_engine = create_engine(_owner_url) if _owner_url else engine
+assert "test" in str(owner_engine.url.database), "tests must never run against the real database"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def schema():
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    Base.metadata.drop_all(owner_engine)
+    Base.metadata.create_all(owner_engine)
+    with owner_engine.begin() as conn:
+        for stmt in rls.enable_statements() + rls.grant_statements(get_settings().app_db_role):
+            conn.execute(text(stmt))
     yield
 
 
 @pytest.fixture(autouse=True)
 def clean():
     tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
-    with engine.begin() as conn:
+    with owner_engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     with SessionLocal() as db:
         ensure_admin(db)
