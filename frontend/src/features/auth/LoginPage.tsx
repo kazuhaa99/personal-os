@@ -148,7 +148,7 @@ function useCountdown(seconds: number) {
 function Header({ icon, title, subtitle }: { icon?: ReactNode; title: string; subtitle: ReactNode }) {
   return (
     <div className="relative flex flex-col items-center text-center">
-      {icon ?? <div className="h-14 w-14 rounded-[16px] grid place-items-center text-white text-2xl font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_6px_18px_rgb(10_112_240/0.4)]" style={{ background: "linear-gradient(145deg, #4aa3ff, #0a62e0)" }}>P</div>}
+      {icon ?? <div className="h-14 w-14 rounded-[16px] grid place-items-center text-accent-ink text-2xl font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_6px_18px_rgb(var(--accent)/0.4)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>}
       <h1 className="mt-4 text-[22px] font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-ink-2 text-balance">{subtitle}</p>
     </div>

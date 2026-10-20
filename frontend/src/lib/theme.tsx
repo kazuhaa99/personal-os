@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { averageColor, clearWallpaper, loadWallpaper, prepareImage, saveWallpaper } from "./wallpaperStore";
 import { asset } from "./base";
+import { accentFor, triplet, vividFromImage, type RGB } from "./palette";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type WallpaperId = "alpine" | "lake" | "ocean" | "night" | "none" | "custom";
@@ -15,6 +16,9 @@ export const WALLPAPERS: { id: WallpaperId; label: string; src?: string; color: 
 
 export interface CustomWallpaper { src: string; color: string }
 
+/** "wallpaper": accent colour taken from the wallpaper; "default": the standard blue. */
+export type AccentMode = "wallpaper" | "default";
+
 interface ThemeState {
   mode: ThemeMode;
   resolved: "light" | "dark";
@@ -28,6 +32,13 @@ interface ThemeState {
   uploadWallpaper: (file: File) => Promise<void>;
   removeCustomWallpaper: () => Promise<void>;
   toggle: () => void;
+  accentMode: AccentMode;
+  setAccentMode: (m: AccentMode) => void;
+  /** Tint the sidebar/toolbar and hero glass with the wallpaper colour. */
+  tint: boolean;
+  setTint: (on: boolean) => void;
+  /** The wallpaper's vivid colour; null = none (no wallpaper, or a colourless one); undefined = still reading it. */
+  vivid: RGB | null | undefined;
 }
 
 const Ctx = createContext<ThemeState | null>(null);
@@ -104,9 +115,42 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggle = useCallback(() => setMode(resolved === "dark" ? "light" : "dark"), [resolved, setMode]);
 
+  // ---- colours from the wallpaper
+  const [accentMode, setAccentModeState] = useState<AccentMode>(() => read("pos.accent", "wallpaper", ["wallpaper", "default"]));
+  const [tint, setTintState] = useState(() => read("pos.tint", "on", ["on", "off"]) === "on");
+  // undefined while the wallpaper is being analysed: keep whatever colours are on screen (the ones
+  // index.html restored before React started) instead of flashing the default blue.
+  const [vivid, setVivid] = useState<RGB | null | undefined>(undefined);
+  const setAccentMode = useCallback((m: AccentMode) => { setAccentModeState(m); write("pos.accent", m); }, []);
+  const setTint = useCallback((on: boolean) => { setTintState(on); write("pos.tint", on ? "on" : "off"); }, []);
+
+  useEffect(() => {
+    if (!active.src) { setVivid(null); return; }
+    let cancelled = false;
+    vividFromImage(active.src).then((c) => { if (!cancelled) setVivid(c); }, () => { if (!cancelled) setVivid(null); });
+    return () => { cancelled = true; };
+  }, [active.src]);
+
+  useEffect(() => {
+    if (vivid === undefined) return;
+    const root = document.documentElement.style;
+    const vars: Record<string, string> = {};
+    if (vivid && accentMode === "wallpaper") {
+      const a = accentFor(vivid, resolved);
+      vars["--accent"] = triplet(a.accent);
+      vars["--accent-ink"] = triplet(a.ink);
+    }
+    if (vivid && tint) vars["--tint"] = `rgb(${triplet(vivid)} / ${resolved === "dark" ? 0.16 : 0.12})`;
+    for (const name of ["--accent", "--accent-ink", "--tint"]) {
+      if (vars[name]) root.setProperty(name, vars[name]); else root.removeProperty(name);
+    }
+    // Remembered so index.html can paint the same colours before React starts (no blue flash).
+    write("pos.colors", JSON.stringify({ theme: resolved, vars }));
+  }, [vivid, accentMode, tint, resolved]);
+
   const value = useMemo(
-    () => ({ mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle }),
-    [mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle],
+    () => ({ mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle, accentMode, setAccentMode, tint, setTint, vivid }),
+    [mode, resolved, wallpaper, custom, active, setMode, setWallpaper, uploadWallpaper, removeCustomWallpaper, toggle, accentMode, setAccentMode, tint, setTint, vivid],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

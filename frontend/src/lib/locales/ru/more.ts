@@ -241,4 +241,12 @@ export const more: Dict = {
   "Privacy": "Конфиденциальность",
   "Personal OS stores everything in your own PostgreSQL database. The API listens on localhost by default and nothing is sent to external services.": "Personal OS хранит всё в вашей собственной базе PostgreSQL. По умолчанию API слушает только localhost, и ничего не отправляется во внешние сервисы.",
   "Running locally is not by itself “secure”: anyone with access to this computer, the database, or an unprotected port can read your data. See the README for the deployment model and its limitations.": "Локальный запуск сам по себе не делает данные «защищёнными»: любой, у кого есть доступ к этому компьютеру, базе данных или незащищённому порту, может их прочитать. Модель развёртывания и её ограничения описаны в README.",
+
+  // wallpaper colours
+  "Accent colour": "Акцентный цвет",
+  "From wallpaper": "Из обоев",
+  "Standard blue": "Стандартный синий",
+  "This wallpaper has hardly any colour, so the standard accent is used.": "В этих обоях почти нет цвета, поэтому используется стандартный акцент.",
+  "Tint the glass with the wallpaper colour": "Подкрашивать стекло цветом обоев",
+  "Buttons, links and highlights take the most vivid colour of the wallpaper, adjusted so text stays readable. Charts keep their own colours.": "Кнопки, ссылки и выделения берут самый яркий цвет обоев, подогнанный так, чтобы текст оставался читаемым. Графики сохраняют свои цвета.",
 };
