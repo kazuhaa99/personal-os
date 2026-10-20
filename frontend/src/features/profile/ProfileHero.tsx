@@ -113,7 +113,7 @@ export function ProfileHero({ profile }: { profile: Profile }) {
             <Mail className="h-4 w-4 text-ink-3 shrink-0" />
             {account.email ? (
               <>
-                <span className="text-ink-2 break-all">{account.email}</span>
+                <span className="text-ink-2 [overflow-wrap:anywhere]">{account.email}</span>
                 <Badge tone={account.email_verified ? "good" : "warn"}>{account.email_verified ? t("Confirmed") : t("Not confirmed")}</Badge>
               </>
             ) : (

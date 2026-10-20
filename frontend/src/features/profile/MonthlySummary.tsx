@@ -22,7 +22,7 @@ function Entry({ m }: { m: MonthlyIncome }) {
       </div>
       <p className="mt-1 text-[28px] leading-tight font-semibold tracking-tight tnum text-ink break-words">{formatMoney(m.expected, m.currency)}</p>
 
-      {expected > 0 && (
+      {num(m.salary) > 0 && num(m.extra) > 0 ? (
         <div className="mt-3">
           <div className="flex h-2 w-full overflow-hidden rounded-full bg-fill/[0.08]" aria-hidden>
             <motion.div className="h-full bg-accent" initial={{ width: 0 }} animate={{ width: `${salaryShare}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
@@ -39,6 +39,8 @@ function Entry({ m }: { m: MonthlyIncome }) {
             </div>
           </dl>
         </div>
+      ) : expected > 0 && (
+        <p className="mt-1 text-xs text-ink-3">{num(m.salary) > 0 ? t("Salary only") : t("Additional income only")}</p>
       )}
 
       <div className="mt-4 rounded-xl bg-fill/[0.04] px-3.5 py-3">
