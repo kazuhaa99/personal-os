@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/AuthGate";
 import { useConfirm } from "@/components/ui/dialog";
 import { Button, Card, CardHeader, cn, Field, Input, Segmented, Select } from "@/components/ui/primitives";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const ZONES = ["Asia/Almaty", "Asia/Aqtobe", "Asia/Qostanay", "Asia/Oral", "Asia/Tashkent", "Asia/Bishkek", "Europe/Moscow", "Europe/Istanbul", "Asia/Dubai", "Europe/Berlin", "Europe/London", "America/New_York", "UTC"];
@@ -150,7 +151,7 @@ function AccountCard() {
   return (
     <Card>
       <CardHeader title={<span className="inline-flex items-center gap-2"><UserCircle className="h-4 w-4 text-ink-3" /> {t("Sign-in")}</span>}
-        subtitle={<>{t("The username and password are set on the server with")} <code className="text-ink-2">POS_AUTH_USERNAME</code> / <code className="text-ink-2">POS_AUTH_PASSWORD</code>.</>} />
+        subtitle={<>{t("Personal info, email and password live in your")} <Link to="/profile" className="text-accent hover:underline">{t("Profile")}</Link>.</>} />
       <div className="px-5 pb-5 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-2">
           {username ? t("Signed in as {username}", { username }) : t("Not signed in")}
@@ -170,10 +171,9 @@ export function SettingsPage() {
   const { data: demo } = useQuery({ queryKey: ["demo"], queryFn: () => api.get<{ loaded: boolean }>("/demo") });
   const confirm = useConfirm();
   const qc = useQueryClient();
-  const [name, setName] = useState("");
   const [tz, setTz] = useState("Asia/Almaty");
   const [token, setTokenInput] = useState(getToken());
-  useEffect(() => { if (settings) { setName(settings.owner_name); setTz(settings.timezone); } }, [settings]);
+  useEffect(() => { if (settings) setTz(settings.timezone); }, [settings]);
 
   const save = useAction((body: Record<string, unknown>) => api.patch("/settings", body), { success: t("Settings saved") });
   const seed = useAction(() => api.post("/demo"), { success: t("Demo data loaded") });
@@ -189,10 +189,9 @@ export function SettingsPage() {
       <AppearanceCard />
       <LanguageCard />
       <Card>
-        <CardHeader title={<span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-ink-3" /> {t("Profile & preferences")}</span>} />
-        <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ owner_name: name.trim(), timezone: tz }); }}>
+        <CardHeader title={<span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-ink-3" /> {t("Preferences")}</span>} />
+        <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ timezone: tz }); }}>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label={t("Your name")} hint={t("Used in the greeting")}>{(id) => <Input id={id} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />}</Field>
             <Field label={t("Timezone")} hint={t("Defines 'today' for tasks, habits and schedules")}>{(id) => (
               <Select id={id} value={tz} onChange={(e) => setTz(e.target.value)}>
                 {[...new Set([tz, ...ZONES])].map((z) => <option key={z} value={z}>{z}</option>)}

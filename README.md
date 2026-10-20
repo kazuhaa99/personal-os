@@ -1,10 +1,10 @@
 # Personal OS — Life & Finance Hub
 
-A private, single-user command center for tasks, goals, habits and personal finances
+A private command center for tasks, goals, habits and personal finances — every account sees only its own data
 (KZT-first, multi-currency-safe). FastAPI + PostgreSQL backend, React + TypeScript frontend.
 
 ```
-Overview ─ Tasks ─ Goals & Projects ─ Habits ─ Finances (Transactions · Accounts · Budgets · Recurring · Installments) ─ Analytics ─ Settings
+Overview ─ Tasks ─ Goals & Projects ─ Habits ─ Finances (Transactions · Accounts · Budgets · Recurring · Installments) ─ Analytics ─ Profile ─ Settings
 ```
 
 ---
@@ -52,8 +52,24 @@ npm run dev                                # http://127.0.0.1:5173 (proxies /api
 
 API docs (OpenAPI): http://127.0.0.1:8000/docs
 
-**Sign in** with `admin` / `adminuser123` — the defaults for local development. **Change them**
-(`POS_AUTH_USERNAME`, `POS_AUTH_PASSWORD`) before the app is reachable from anywhere but your own machine.
+**Sign in** with `admin` / `adminuser123` — the first account, created on first start (existing data
+belongs to it). **Change that password** (Profile → Login & security) before the app is reachable from anywhere
+but your own machine. Anyone else can **create an account** on the login screen; each account has its own
+tasks, finances, habits, settings and profile.
+
+### Accounts, email confirmation and the Profile
+
+- Sign in with **username or email**. Registration asks for username, email and password and mails a
+  6-digit code (sent from `spokeesofficial@gmail.com`); the account works once the code is entered.
+  Forgotten passwords are reset with an emailed code. Changing the login email confirms the new address first.
+- **Profile** (sidebar → your name): avatar, first/last name, phone, birthday, city, occupation, employer, bio,
+  salary (amount, currency, frequency, payday) and additional income sources. It shows the expected income per
+  month (all schedules normalised to a month) next to what has actually arrived this month.
+- **Sending email** needs an SMTP password. For Gmail: enable 2-Step Verification on the Google account, create an
+  *App password* (Google Account → Security → App passwords) and start the API with
+  `POS_SMTP_PASSWORD=<app password>` (host/port/user default to `smtp.gmail.com:587` / `spokeesofficial@gmail.com`).
+  Never commit it. Without it, registration is closed (the login page hides "Create account"). For local testing
+  `POS_MAIL_DEV_LOG=true` prints the emails, codes included, to the API log instead of sending them.
 
 ### Try it with demo data
 
@@ -194,8 +210,13 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 |---|---|---|
 | `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL (`postgresql+psycopg://…`) |
 | `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed origins (`*` is ignored) |
-| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / `adminuser123` | Login for the web UI. **Change before exposing the app** |
-| `POS_AUTH_ENABLED` | `true` | Set `false` to skip the login page (localhost-only setups) |
+| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / `adminuser123` | First account, created only if no users exist yet. **Change the password before exposing the app** |
+| `POS_ALLOW_REGISTRATION` | `true` | Let new people create accounts (needs working email) |
+| `POS_SMTP_HOST` / `POS_SMTP_PORT` / `POS_SMTP_USER` | `smtp.gmail.com` / `587` / `spokeesofficial@gmail.com` | Outgoing mail (STARTTLS) |
+| `POS_SMTP_PASSWORD` | empty | SMTP / Gmail App password — required to send confirmation codes |
+| `POS_MAIL_FROM` | `Personal OS <spokeesofficial@gmail.com>` | Sender shown in emails |
+| `POS_MAIL_DEV_LOG` | `false` | Development: write emails to the log instead of sending |
+| `POS_AUTH_ENABLED` | `true` | Set `false` to skip the login page — every request then acts as the first account (localhost-only) |
 | `POS_SECRET_KEY` | auto | Signs session cookies; if unset a random key is created in `backend/.secret_key` |
 | `POS_SESSION_DAYS` | `30` | Session lifetime |
 | `POS_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
@@ -219,18 +240,26 @@ alembic check                                      # verify models and migration
 
 ## Security & privacy — deployment model and limitations
 
-- Designed for **one person on their own machine**. The dev servers bind to `127.0.0.1`; in Docker only
+- Designed to run on **your own machine** (optionally shared with people you trust). The dev servers bind to `127.0.0.1`; in Docker only
   the web UI is published, on `127.0.0.1:8080`. The API and database are not exposed.
 - Running locally is **not** automatically secure: anyone with access to your user account, the
   database, backups or an exposed port can read the data. Data is not encrypted at rest by the app —
   use disk encryption.
-- Login is a single owner account configured by environment variables (not a multi-user system).
-  A successful login sets an HttpOnly, SameSite=Strict cookie signed with HMAC-SHA256; credentials are
-  compared in constant time and failed attempts are throttled (10 per 5 minutes per client).
-  **The default `admin` / `adminuser123` is public knowledge** (it is in this README) — set your own
-  `POS_AUTH_PASSWORD` and `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS
-  (reverse proxy) or a VPN such as Tailscale before exposing it beyond localhost.
-- `POS_API_TOKEN` (optional) is a shared secret for scripts; when entered in Settings it is stored in localStorage.
+- **Accounts.** Passwords are hashed with scrypt (per-user salt). A login sets an HttpOnly, SameSite=Strict
+  cookie signed with HMAC-SHA256; changing or resetting a password signs out every other session. Unknown
+  usernames cost the same time as wrong passwords, "forgot password" never reveals whether an account exists,
+  and logins, registrations and code checks are throttled (10 per 5 minutes per client; 5 wrong codes per code;
+  one code per minute). Email codes are 6 digits, valid 15 minutes, and only their HMAC is stored.
+- **Data isolation** is enforced centrally (`backend/app/tenancy.py`): every ORM read, update and delete is
+  filtered to the signed-in user, new rows are stamped with that user, and a foreign key pointing at another
+  user's row is rejected. With no signed-in user, queries match nothing. Tests cover cross-account access.
+- **The default `admin` / `adminuser123` is public knowledge** (it is in this README) — change it, set
+  `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS (reverse proxy) or a VPN such as
+  Tailscale before exposing it beyond localhost.
+- `POS_API_TOKEN` (optional) is a shared secret for scripts and acts as the first account; when entered in
+  Settings it is stored in localStorage.
+- Avatars are stored in the database (PNG/JPEG/WebP checked by file signature, max 2 MB, downscaled to
+  512 px in the browser). Wallpaper photos never leave the browser.
 - All input is validated server-side (Pydantic + DB constraints); all SQL goes through SQLAlchemy
   parameter binding; CORS is an explicit allow-list; responses carry `nosniff`, `DENY` framing and
   `no-store`; request bodies and amounts are not logged; CSV exports neutralise spreadsheet formulas.

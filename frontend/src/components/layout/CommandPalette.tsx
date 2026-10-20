@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftRight, BarChart3, CalendarClock, CheckSquare, CornerDownLeft, CreditCard, Flame, Landmark, Languages, LayoutDashboard, Moon, PiggyBank, Plus, Search,
-  Settings, Sun, Target,
+  Settings, Sun, Target, UserCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -60,6 +60,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       { id: "go-rec", group: t("Go to"), label: t("Recurring payments"), icon: i(CalendarClock), run: go("/finances/recurring") },
       { id: "go-inst", group: t("Go to"), label: t("Installments"), icon: i(CreditCard), run: go("/finances/installments") },
       { id: "go-an", group: t("Go to"), label: t("Analytics"), icon: i(BarChart3), run: go("/analytics") },
+      { id: "go-profile", group: t("Go to"), label: t("Profile"), icon: i(UserCircle), run: go("/profile") },
       { id: "go-set", group: t("Go to"), label: t("Settings"), icon: i(Settings), run: go("/settings") },
       { id: "theme", group: t("Appearance"), label: theme.resolved === "dark" ? t("Switch to light appearance") : t("Switch to dark appearance"), icon: theme.resolved === "dark" ? i(Sun) : i(Moon), run: theme.toggle },
       ...LANGUAGES.map((l): Cmd => ({ id: `lang-${l.id}`, group: t("Language"), label: l.label, hint: lang === l.id ? "✓" : l.short, icon: i(Languages), run: () => setLang(l.id) })),
