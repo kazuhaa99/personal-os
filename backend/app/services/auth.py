@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.errors import DomainError, ValidationFailed
+from app.errors import Conflict, DomainError, ValidationFailed
 from app.models import User
 from app.services import mail
 from app.services.i18n import current
@@ -182,6 +182,26 @@ def set_password(db: Session, user: User, password: str) -> None:
     user.password_hash = hash_password(password)
     user.session_epoch += 1  # signs out every other device
     db.commit()
+
+
+def delete_account(db: Session, user: User, password: str) -> None:
+    """Remove the user and every row they own. Password-confirmed; the last account stays."""
+    if not verify_password(password, user.password_hash):
+        raise ValidationFailed("Current password is wrong", code="password_wrong")
+    if db.scalar(select(func.count()).select_from(User)) <= 1:
+        raise Conflict("The only account can't be deleted", code="last_account")
+    from app.db import Base
+    from app.tenancy import Owned
+
+    owned = {m.local_table.name for m in Base.registry.mappers if issubclass(m.class_, Owned)}
+    with acting_as(user.id):
+        # Children before parents: several links between owned tables are ON DELETE RESTRICT,
+        # so letting users.id cascade everything in one go would trip over them.
+        for table in reversed(Base.metadata.sorted_tables):
+            if table.name in owned:
+                db.execute(table.delete().where(table.c.user_id == user.id))
+        db.execute(User.__table__.delete().where(User.__table__.c.id == user.id))
+        db.commit()
 
 
 # ------------------------------------------------------------------ sessions

@@ -84,6 +84,10 @@ class ConfirmIn(BaseModel):
     code: str = Field(max_length=12)
 
 
+class DeleteAccountIn(BaseModel):
+    password: str = Field(max_length=200)
+
+
 @router.get("/me")
 def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE), db: Session = Depends(get_db)):
     s = get_settings()
@@ -223,6 +227,15 @@ def confirm_email_change(body: ConfirmIn, db: Session = Depends(get_db)):
     user.email_verified_at = datetime.now(timezone.utc)
     db.commit()
     return svc.user_out(user)
+
+
+@router.delete("/me", status_code=204, dependencies=[Depends(require_user)])
+def delete_account(body: DeleteAccountIn, request: Request, response: Response, db: Session = Depends(get_db)):
+    """Permanently delete the signed-in account and all of its data."""
+    _throttle(request, "delete-account")
+    user = db.get(User, current_user_id())
+    svc.delete_account(db, user, body.password)
+    response.delete_cookie(svc.SESSION_COOKIE, path="/")
 
 
 @router.delete("/email/change", dependencies=[Depends(require_user)])
