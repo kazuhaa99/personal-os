@@ -308,14 +308,14 @@ export function AppShell() {
           </header>
 
           <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div key={location.pathname}
-                initial={{ opacity: 0, y: 10, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-                transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
-                {waitForZone ? <div className="grid place-items-center py-24"><Spinner /></div> : outlet}
-              </motion.div>
-            </AnimatePresence>
+            {/* The next page shows at once (no waiting for the old one to leave) and only fades in:
+                a blur filter over a whole page is costly to paint. */}
+            <motion.div key={location.pathname}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
+              {waitForZone ? <div className="grid place-items-center py-24"><Spinner /></div> : outlet}
+            </motion.div>
           </main>
         </div>
       </div>
