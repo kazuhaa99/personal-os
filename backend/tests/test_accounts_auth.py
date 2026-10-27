@@ -154,7 +154,10 @@ def test_code_attempts_and_resend_are_limited(client, outbox):
     client.post("/api/auth/register", json={"username": "eve", "email": "eve@example.com", "password": "12345678"})
     code = code_from(outbox)
     wrong = "000000" if code != "000000" else "111111"
-    assert client.post("/api/auth/resend-code", json={"identifier": "eve"}).status_code == 429  # within a minute
+    sent = len(outbox)
+    # Within a minute: not sent again, yet still 204 so the reply never reveals the account exists.
+    assert client.post("/api/auth/resend-code", json={"identifier": "eve"}).status_code == 204
+    assert len(outbox) == sent
     for _ in range(5):
         client.post("/api/auth/verify-email", json={"identifier": "eve", "code": wrong})
     assert client.post("/api/auth/verify-email", json={"identifier": "eve", "code": code}).status_code == 429

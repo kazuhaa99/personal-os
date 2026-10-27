@@ -35,6 +35,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     # --- auth & account
     "Too many attempts. Try again in a few minutes.": ("Слишком много попыток. Попробуйте через несколько минут.", "시도 횟수가 너무 많아요. 몇 분 후 다시 시도해 주세요."),
     "Confirm your email to sign in. We sent a code to {user.email}.": ("Подтвердите почту, чтобы войти. Мы отправили код на {user.email}.", "로그인하려면 이메일을 인증해 주세요. {user.email}(으)로 코드를 보냈어요."),
+    "Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.": ("Подтвердите почту, чтобы войти. Сейчас не получилось отправить код, попробуйте через несколько минут.", "로그인하려면 이메일을 인증해 주세요. 지금은 코드를 보내지 못했어요. 몇 분 후 다시 시도해 주세요."),
     "Registration is closed": ("Регистрация закрыта", "회원가입이 닫혀 있어요"),
     "Wrong code": ("Неверный код", "코드가 올바르지 않아요"),
     "This email is already confirmed": ("Эта почта уже подтверждена", "이미 인증된 이메일이에요"),

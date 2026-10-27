@@ -201,9 +201,12 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
         onSignedIn(await passwordSignIn(identifier.trim(), password));
       } catch (err) {
         if (err instanceof ApiError && err.code === "email_unverified") {
-          const addr = (err.details as { email?: string } | undefined)?.email ?? "";
+          const details = err.details as { email?: string; code_sent?: boolean } | undefined;
+          const addr = details?.email ?? "";
           go({ name: "verify", identifier: identifier.trim(), email: addr });
-          setNotice(t("Confirm your email to sign in. We sent a code to {email}.", { email: addr }));
+          setNotice(details?.code_sent === false
+            ? t("Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.")
+            : t("Confirm your email to sign in. We sent a code to {email}.", { email: addr }));
           return;
         }
         setPassword("");

@@ -31,6 +31,7 @@ export const auth: Dict = {
   "Digit {n}": "{n}번째 숫자",
   "Enter your username or email and password": "아이디 또는 이메일과 비밀번호를 입력하세요",
   "Confirm your email to sign in. We sent a code to {email}.": "로그인하려면 이메일을 인증하세요. {email}(으)로 코드를 보냈어요.",
+  "Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.": "로그인하려면 이메일을 인증하세요. 지금은 코드를 보내지 못했어요. 몇 분 후 다시 시도해 주세요.",
   "We sent a new code.": "새 코드를 보냈어요.",
   "Enter your username or email": "아이디 또는 이메일을 입력하세요",
   "If an account with a confirmed email exists, we sent a code to it.": "인증된 이메일의 계정이 있다면 그 주소로 코드를 보냈어요.",

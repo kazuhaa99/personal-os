@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from collections import deque
@@ -17,6 +18,8 @@ from app.services import auth as svc
 from app.services import mail, native_tokens
 from app.services.i18n import use_language
 from app.tenancy import current_user_id
+
+log = logging.getLogger("personal_os")
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(use_language)])
 
@@ -168,13 +171,24 @@ def _checked_login(request: Request, db: Session, identifier: str, password: str
         user = svc.authenticate(db, identifier, password)
     if svc.needs_verification(user):
         # Password was right but the email was never confirmed: send (or reuse) a code.
-        if not svc.code_pending(user, "verify"):
-            try:
-                svc.send_code(db, user, "verify")
-            except (svc.TooManyRequests, mail.MailUnavailable):
-                pass
-        raise svc.EmailUnverified(f"Confirm your email to sign in. We sent a code to {user.email}.", details={"email": user.email})
+        sent = svc.code_pending(user, "verify") or _send_quietly(db, user, "verify")
+        details = {"email": user.email, "code_sent": sent}
+        if sent:
+            raise svc.EmailUnverified(f"Confirm your email to sign in. We sent a code to {user.email}.", details=details)
+        raise svc.EmailUnverified("Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.", details=details)
     return user
+
+
+def _send_quietly(db: Session, user: User, purpose: str) -> bool:
+    """Send a code where the reply must not reveal whether it worked (or whether the account exists)."""
+    try:
+        svc.send_code(db, user, purpose)
+        return True
+    except svc.TooManyRequests:
+        return False
+    except mail.MailUnavailable:
+        log.error("could not send a %s code", purpose)  # already logged by mail with the cause
+        return False
 
 
 @router.post("/login")
@@ -235,9 +249,10 @@ def verify_email(body: CodeIn, request: Request, response: Response, db: Session
 @router.post("/resend-code", status_code=204)
 def resend_code(body: IdentifierIn, request: Request, db: Session = Depends(get_db)):
     _throttle(request, "resend")
+    """Always 204, so the response never tells whether an account exists."""
     user = svc.find_user(db, body.identifier)
     if user is not None and svc.needs_verification(user):
-        svc.send_code(db, user, "verify")
+        _send_quietly(db, user, "verify")
 
 
 @router.post("/password/forgot", status_code=204)
@@ -246,10 +261,7 @@ def forgot_password(body: IdentifierIn, request: Request, db: Session = Depends(
     _throttle(request, "forgot")
     user = svc.find_user(db, body.identifier)
     if user is not None and user.email and user.email_verified_at:
-        try:
-            svc.send_code(db, user, "reset")
-        except svc.TooManyRequests:
-            pass
+        _send_quietly(db, user, "reset")
 
 
 @router.post("/password/reset")
