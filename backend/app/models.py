@@ -110,6 +110,20 @@ class NativeSession(TimestampMixin, Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class RevokedWebSession(Base):
+    """A signed web session cookie that was signed out before it expired.
+
+    Cookies are stateless (signed, see services/auth.py), so signing out records the cookie's
+    random id here until the cookie would have expired anyway. No user data, no RLS: checked
+    before anyone is signed in.
+    """
+
+    __tablename__ = "revoked_web_sessions"
+
+    token_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+
+
 class AppSettings(Owned, TimestampMixin, Base):
     """One row per user: preferences."""
 

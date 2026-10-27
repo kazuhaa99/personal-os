@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.errors import Conflict, DomainError, ValidationFailed
-from app.models import NativeSession, User
+from app.models import NativeSession, RevokedWebSession, User
 from app.services import mail
 from app.services.i18n import current
 from app.tenancy import acting_as
@@ -258,7 +258,8 @@ def create_session(user: User) -> str:
     return f"{payload}|{_sign(payload)}"
 
 
-def session_user_id(db: Session, token: str) -> int | None:
+def _session_fields(token: str) -> tuple[int, int, int, str] | None:
+    """(user id, epoch, expiry, random id) of a validly signed, unexpired cookie."""
     payload, _, sig = token.rpartition("|")
     if not payload or not hmac.compare_digest(sig, _sign(payload)):
         return None
@@ -268,10 +269,32 @@ def session_user_id(db: Session, token: str) -> int | None:
     uid, epoch, expires = int(parts[0]), int(parts[1]), int(parts[2])
     if expires < time.time():
         return None
+    return uid, epoch, expires, parts[3]
+
+
+def session_user_id(db: Session, token: str) -> int | None:
+    fields = _session_fields(token)
+    if fields is None:
+        return None
+    uid, epoch, _, token_id = fields
+    if db.get(RevokedWebSession, token_id) is not None:
+        return None
     user = db.get(User, uid)
     if user is None or user.session_epoch != epoch or needs_verification(user):
         return None
     return uid
+
+
+def revoke_session(db: Session, token: str) -> None:
+    """Sign this cookie out for good (not just in this browser); forget long-expired ones."""
+    fields = _session_fields(token)
+    if fields is None:
+        return
+    now = datetime.now(timezone.utc)
+    db.execute(delete(RevokedWebSession).where(RevokedWebSession.expires_at < now))
+    if db.get(RevokedWebSession, fields[3]) is None:
+        db.add(RevokedWebSession(token_id=fields[3], expires_at=datetime.fromtimestamp(fields[2], timezone.utc)))
+    db.commit()
 
 
 # ------------------------------------------------------------------ one-time codes

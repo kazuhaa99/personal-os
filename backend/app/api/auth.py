@@ -277,7 +277,10 @@ def reset_password(body: ResetIn, request: Request, response: Response, db: Sess
 
 
 @router.post("/logout", status_code=204)
-def logout(response: Response):
+def logout(response: Response, session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
+           db: Session = Depends(get_db)):
+    if session:
+        svc.revoke_session(db, session)
     response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")
 
 
