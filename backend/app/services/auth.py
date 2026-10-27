@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import logging
+import os
 import re
 import secrets
 import time
@@ -47,22 +48,47 @@ class EmailUnverified(DomainError):
     code = "email_unverified"
 
 
+_KEY_MIN_LENGTH = 32
+
+
 def _key() -> bytes:
     global _key_cache
     configured = get_settings().secret_key
     if configured:
         return configured.encode()
     if _key_cache is None:
-        try:
-            _key_cache = _KEY_FILE.read_bytes().strip()
-        except FileNotFoundError:
-            _key_cache = secrets.token_hex(32).encode()
-            try:
-                _KEY_FILE.write_bytes(_key_cache)
-                _KEY_FILE.chmod(0o600)
-            except OSError:
-                pass  # read-only filesystem: sessions last until restart; set POS_SECRET_KEY to persist
+        _key_cache = _load_or_create_key(_KEY_FILE)
     return _key_cache
+
+
+def _load_or_create_key(path: Path) -> bytes:
+    """The installation's key in `path`, created on first use. Created atomically (written to a
+    temporary file, then linked into place), so workers starting together all end up with one key."""
+    try:
+        return _checked_key(path)
+    except FileNotFoundError:
+        pass
+    key = secrets.token_hex(32).encode()
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{secrets.token_hex(4)}")
+    try:
+        tmp.write_bytes(key)
+        tmp.chmod(0o600)
+        os.link(tmp, path)
+    except FileExistsError:
+        return _checked_key(path)  # another worker was first: use its key
+    except OSError as exc:
+        log.warning("Could not save the session key to %s (%s): sessions end at every restart. "
+                    "Set POS_SECRET_KEY to keep them.", path, type(exc).__name__)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return key
+
+
+def _checked_key(path: Path) -> bytes:
+    key = path.read_bytes().strip()
+    if len(key) < _KEY_MIN_LENGTH:
+        raise RuntimeError(f"{path} holds no usable key: delete it (a new one is created) or set POS_SECRET_KEY")
+    return key
 
 
 def _sign(payload: str) -> str:
