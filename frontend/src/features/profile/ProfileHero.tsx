@@ -4,6 +4,7 @@ import { Camera, Loader2, Mail, Trash2 } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 import { api, errorMessage } from "@/lib/api";
+import { resolveApiUrl } from "@/lib/base";
 import { t } from "@/lib/i18n";
 import type { Profile } from "@/lib/types";
 import { useConfirm } from "@/components/ui/dialog";
@@ -82,7 +83,7 @@ export function ProfileHero({ profile }: { profile: Profile }) {
             )}
           >
             {showImg ? (
-              <img src={profile.avatar_url!} alt="" className="h-full w-full object-cover" onError={() => setImgFailed(profile.avatar_url)} />
+              <img src={resolveApiUrl(profile.avatar_url)!} alt="" className="h-full w-full object-cover" onError={() => setImgFailed(profile.avatar_url)} />
             ) : (
               <span className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#5ac8fa_0%,#007aff_45%,#af52de_100%)] text-3xl sm:text-4xl font-semibold tracking-tight text-white">
                 {initials(profile.first_name, profile.last_name, account.username)}

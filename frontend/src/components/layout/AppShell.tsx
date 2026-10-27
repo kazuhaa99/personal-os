@@ -8,6 +8,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { api } from "@/lib/api";
+import { resolveApiUrl } from "@/lib/base";
 import { formatMoney } from "@/lib/format";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useAccounts } from "@/lib/queries";
@@ -153,7 +154,7 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex items-center gap-1 rounded-[10px] hover:bg-fill/[0.05] transition-colors">
       <NavLink to="/profile" onClick={onNavigate} className={({ isActive }) => cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2 py-1.5", isActive && "bg-fill/[0.09]")}>
-        <Avatar src={profile?.avatar_url} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
+        <Avatar src={resolveApiUrl(profile?.avatar_url)} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[13.5px] font-medium">{full || username}</span>
           <span className="block truncate text-xs text-ink-3">{username ? `@${username}` : t("Profile")}</span>

@@ -7,6 +7,11 @@ const apiTarget = process.env.VITE_API_PROXY ?? "http://127.0.0.1:8000";
 // Path prefix the app is served under, e.g. "/personalos/" (default: the site root).
 const base = `/${(process.env.VITE_BASE ?? "/").replace(/^\/+|\/+$/g, "")}/`.replace(/^\/\/$/, "/");
 const apiPrefix = `${base}api`;
+// Native builds only: absolute API address (see src/lib/base.ts). HTTPS, except a local dev server.
+const apiBase = process.env.VITE_API_BASE;
+if (apiBase && !/^(https:\/\/[^/\s]+|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)(\/\S*)?$/.test(apiBase)) {
+  throw new Error(`VITE_API_BASE must be an https:// URL (or http://localhost), got "${apiBase}"`);
+}
 
 export default defineConfig({
   base,
