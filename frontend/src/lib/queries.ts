@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api, errorMessage } from "./api";
 import { haptic } from "@/platform/native";
 import type { Account, Category, Settings } from "./types";
+import { setAppTimeZone } from "@/lib/format";
 
 export function useAccounts() {
   return useQuery({ queryKey: ["accounts"], queryFn: () => api.get<Account[]>("/accounts") });
@@ -13,7 +14,7 @@ export function useCategories() {
 }
 
 export function useSettings() {
-  return useQuery({ queryKey: ["settings"], queryFn: () => api.get<Settings>("/settings"), staleTime: 60_000 });
+  return useQuery({ queryKey: ["settings"], queryFn: () => api.get<Settings>("/settings").then((s) => { setAppTimeZone(s.timezone); return s; }), staleTime: 60_000 });
 }
 
 /**

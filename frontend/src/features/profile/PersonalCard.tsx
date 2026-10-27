@@ -7,6 +7,7 @@ import { useAction } from "@/lib/queries";
 import type { Profile } from "@/lib/types";
 import { Button, Card, CardHeader, cn, Field, Input, Textarea } from "@/components/ui/primitives";
 import { PROFILE_KEY } from "./shared";
+import { todayISO } from "@/lib/format";
 
 const BIO_MAX = 2000;
 type Form = { first_name: string; last_name: string; phone: string; birthday: string; city: string; occupation: string; employer: string; bio: string };
@@ -45,7 +46,7 @@ export function PersonalCard({ profile }: { profile: Profile }) {
     save.mutate(body);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   return (
     <Card>

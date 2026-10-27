@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { addMonths, startOfYear, subMonths } from "date-fns";
+import { startOfYear, subMonths } from "date-fns";
 import { BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, ComposedChart } from "recharts";
 import { api } from "@/lib/api";
 import { format, t } from "@/lib/i18n";
-import { compactMoney, fmtDate, formatMoney, monthLabel } from "@/lib/format";
+import { compactMoney, fmtDate, formatMoney, monthLabel, nowInAppZone } from "@/lib/format";
 import type { AnalyticsSummary, ExpectedPayment } from "@/lib/types";
 import { AXIS, axisProps, ChartCard, ChartTooltip, GRID, NEG, SERIES } from "@/components/charts/ChartCard";
 import { Card, CardHeader, EmptyState, ErrorBlock, Input, LoadingBlock, MetricCard, MoneyText, Segmented, Select, cn } from "@/components/ui/primitives";
@@ -15,7 +15,7 @@ const M = "yyyy-MM";
 type Preset = "3m" | "6m" | "12m" | "ytd" | "custom";
 
 function rangeFor(p: Preset): [string, string] {
-  const now = new Date();
+  const now = nowInAppZone();
   if (p === "ytd") return [format(startOfYear(now), M), format(now, M)];
   const n = p === "3m" ? 3 : p === "12m" ? 12 : 6;
   return [format(subMonths(now, n - 1), M), format(now, M)];
@@ -44,7 +44,7 @@ export function AnalyticsPage() {
         <>
           <Input type="month" aria-label={t("From month")} className="w-[10rem]" value={custom[0]} max={custom[1]} onChange={(e) => e.target.value && setCustom([e.target.value, custom[1]])} />
           <span className="text-ink-3">–</span>
-          <Input type="month" aria-label={t("To month")} className="w-[10rem]" value={custom[1]} min={custom[0]} max={format(addMonths(new Date(), 0), M)} onChange={(e) => e.target.value && setCustom([custom[0], e.target.value])} />
+          <Input type="month" aria-label={t("To month")} className="w-[10rem]" value={custom[1]} min={custom[0]} max={format(nowInAppZone(), M)} onChange={(e) => e.target.value && setCustom([custom[0], e.target.value])} />
         </>
       )}
     </div>

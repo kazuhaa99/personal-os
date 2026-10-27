@@ -4,7 +4,7 @@ import { ArrowLeftRight, Download, Pencil, Receipt, Search, Trash2, Upload } fro
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, errorMessage } from "@/lib/api";
-import { fmtDate, formatMoney, todayISO } from "@/lib/format";
+import { fmtDate, formatMoney, todayISO, nowInAppZone } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAccounts, useAction, useCategories } from "@/lib/queries";
 import type { Transaction, TxPage } from "@/lib/types";
@@ -21,10 +21,10 @@ const PAGE = 50;
 const ISO = "yyyy-MM-dd";
 
 const PRESETS: { key: string; label: string; range: () => [string, string] | null }[] = [
-  { key: "month", label: "This month", range: () => [format(startOfMonth(new Date()), ISO), format(endOfMonth(new Date()), ISO)] },
-  { key: "last-month", label: "Last month", range: () => { const d = subMonths(new Date(), 1); return [format(startOfMonth(d), ISO), format(endOfMonth(d), ISO)]; } },
-  { key: "30d", label: "Last 30 days", range: () => [format(subDays(new Date(), 29), ISO), todayISO()] },
-  { key: "90d", label: "Last 90 days", range: () => [format(subDays(new Date(), 89), ISO), todayISO()] },
+  { key: "month", label: "This month", range: () => [format(startOfMonth(nowInAppZone()), ISO), format(endOfMonth(nowInAppZone()), ISO)] },
+  { key: "last-month", label: "Last month", range: () => { const d = subMonths(nowInAppZone(), 1); return [format(startOfMonth(d), ISO), format(endOfMonth(d), ISO)]; } },
+  { key: "30d", label: "Last 30 days", range: () => [format(subDays(nowInAppZone(), 29), ISO), todayISO()] },
+  { key: "90d", label: "Last 90 days", range: () => [format(subDays(nowInAppZone(), 89), ISO), todayISO()] },
   { key: "all", label: "All time", range: () => null },
 ];
 

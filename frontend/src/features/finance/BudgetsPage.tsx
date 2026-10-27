@@ -4,7 +4,7 @@ import { AlertOctagon, AlertTriangle, ChevronLeft, ChevronRight, PiggyBank, Plus
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { formatMoney, monthLabel, normalizeAmount } from "@/lib/format";
+import { formatMoney, monthLabel, normalizeAmount, nowInAppZone } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAction, useCategories } from "@/lib/queries";
 import type { BudgetLine, BudgetMonth } from "@/lib/types";
@@ -49,7 +49,7 @@ function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolea
 
 export function BudgetsPage() {
   const [params, setParams] = useSearchParams();
-  const month = monthParam(params.get("month"), format(new Date(), "yyyy-MM"));
+  const month = monthParam(params.get("month"), format(nowInAppZone(), "yyyy-MM"));
   const confirm = useConfirm();
   const [form, setForm] = useState<{ open: boolean; line: BudgetLine | null }>({ open: false, line: null });
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["budgets", month], queryFn: () => api.get<BudgetMonth>("/budgets", { month }) });

@@ -5,7 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckSquare, Flame, Plus, T
 import { Link } from "react-router-dom";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { api } from "@/lib/api";
-import { formatMoney, monthLabel, relativeDay } from "@/lib/format";
+import { formatMoney, monthLabel, relativeDay, nowInAppZone } from "@/lib/format";
 import { goalArt } from "@/lib/goalArt";
 import { format, t, tp } from "@/lib/i18n";
 import { useAction } from "@/lib/queries";
@@ -99,7 +99,7 @@ export function OverviewPage() {
     <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="show">
       <motion.div variants={rise} className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-tight">{greeting(new Date().getHours())}{name}</h2>
+          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-tight">{greeting(nowInAppZone().getHours())}{name}</h2>
           <p className="mt-1 text-sm text-ink-2">
             {data.tasks.counts.today + data.tasks.counts.overdue > 0
               ? `${tp("{n} task due today", data.tasks.counts.today)}${data.tasks.counts.overdue ? `, ${tp("{n} overdue", data.tasks.counts.overdue)}` : ""}`

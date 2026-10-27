@@ -9,7 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { api } from "@/lib/api";
 import { resolveApiUrl } from "@/lib/base";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, nowInAppZone } from "@/lib/format";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useAccounts } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
@@ -262,7 +262,7 @@ export function AppShell() {
   useMacShortcuts({ newItem: () => quick.newTransaction(), search: () => setPalette(true), settings: () => navigate("/settings") });
 
   const [title, subtitle] = (() => {
-    if (location.pathname === "/") return [t("Overview"), format(new Date(), "PPPP")];
+    if (location.pathname === "/") return [t("Overview"), format(nowInAppZone(), "PPPP")];
     const hit = TITLES.find(([p]) => location.pathname.startsWith(p));
     return hit ? [t(hit[1]), t(hit[2])] : ["Personal OS", ""];
   })();

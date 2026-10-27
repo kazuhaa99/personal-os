@@ -59,8 +59,42 @@ export function monthLabel(m: string, pattern = "MMM yyyy"): string {
   return format(parseISO(`${m}-01`), t(pattern));
 }
 
+// "Today" follows the timezone chosen in Settings (as the API does), not the device's. Remembered
+// on the device so the very first render after a restart already uses it.
+const TZ_KEY = "pos.tz";
+let appTimeZone: string | null = readStoredZone();
+
+function readStoredZone(): string | null {
+  try { return validZone(localStorage.getItem(TZ_KEY)); } catch { return null; }
+}
+
+function validZone(tz: string | null | undefined): string | null {
+  if (!tz) return null;
+  try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return tz; } catch { return null; }
+}
+
+/** Set from the loaded settings; null (or an unknown zone) falls back to the device's. */
+export function setAppTimeZone(tz: string | null): void {
+  appTimeZone = validZone(tz);
+  try {
+    if (appTimeZone) localStorage.setItem(TZ_KEY, appTimeZone);
+    else localStorage.removeItem(TZ_KEY);
+  } catch { /* storage unavailable: kept for this session only */ }
+}
+
+/** The current wall-clock time in the app's timezone, as a local Date (for date-fns). */
+export function nowInAppZone(): Date {
+  const now = new Date();
+  if (!appTimeZone) return now;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: appTimeZone, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(now).map((p) => [p.type, Number(p.value)]));
+  return new Date(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+}
+
 export function todayISO(): string {
-  return isoFormat(new Date(), "yyyy-MM-dd");
+  return isoFormat(nowInAppZone(), "yyyy-MM-dd");
 }
 
 const FREQUENCIES: Record<string, string> = {

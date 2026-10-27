@@ -1,4 +1,5 @@
-import { formatMoney, isNegative, normalizeAmount } from "./format";
+import { afterEach, vi } from "vitest";
+import { formatMoney, isNegative, normalizeAmount, nowInAppZone, setAppTimeZone, todayISO } from "./format";
 import { qs } from "./api";
 
 const T = " ";
@@ -43,5 +44,26 @@ describe("helpers", () => {
   it("qs drops empty params", () => {
     expect(qs({ a: 1, b: "", c: null, d: undefined, e: false })).toBe("?a=1&e=false");
     expect(qs({})).toBe("");
+  });
+});
+
+describe("today in the timezone from Settings, not the browser's", () => {
+  afterEach(() => { vi.useRealTimers(); setAppTimeZone(null); });
+
+  it("follows the configured zone across the date line", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-27T12:00:00Z"));
+    setAppTimeZone("Pacific/Kiritimati"); // UTC+14: already the 28th
+    expect(todayISO()).toBe("2026-10-28");
+    expect(nowInAppZone().getHours()).toBe(2);
+    setAppTimeZone("Pacific/Pago_Pago"); // UTC-11: still the 27th
+    expect(todayISO()).toBe("2026-10-27");
+  });
+
+  it("ignores a zone the browser doesn't know", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 27, 23, 30));
+    setAppTimeZone("Not/AZone");
+    expect(todayISO()).toBe("2026-10-27");
   });
 });
