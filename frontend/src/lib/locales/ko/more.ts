@@ -251,6 +251,7 @@ export const more: Dict = {
   "Buttons, links and highlights take the most vivid colour of the wallpaper, adjusted so text stays readable. Charts keep their own colours.": "버튼, 링크, 강조 표시는 배경화면에서 가장 선명한 색을 가져와 글자가 잘 읽히도록 조정해요. 차트는 원래 색을 유지해요.",
   // native apps (iOS / macOS)
   "No connection to the server. Showing saved data; changes are off until it's back.": "서버에 연결할 수 없어요. 저장된 데이터를 보여 드리며, 연결이 돌아올 때까지 변경할 수 없어요.",
+  "No connection to the server": "서버에 연결할 수 없어요",
   "Unlock Personal OS": "Personal OS 잠금 해제",
   "Personal OS is locked": "Personal OS가 잠겨 있어요",
   "Unlock": "잠금 해제",

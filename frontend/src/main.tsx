@@ -10,7 +10,7 @@ import { BiometricLock } from "./components/native/BiometricLock";
 import { OfflineBanner } from "./components/native/OfflineBanner";
 import { ConfirmProvider } from "./components/ui/dialog";
 import { LangProvider } from "./lib/i18n";
-import { createQueryClient, NATIVE_CACHE_MAX_AGE } from "./lib/queryClient";
+import { createQueryClient, DEVICE_CACHE_KEY, NATIVE_CACHE_MAX_AGE } from "./lib/queryClient";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { asset, BASE } from "./lib/base";
 import { IS_NATIVE, PLATFORM } from "./platform";
@@ -30,7 +30,7 @@ if (IS_NATIVE) {
 }
 
 const queryClient = createQueryClient({ persist: IS_NATIVE });
-const persister = IS_NATIVE ? createSyncStoragePersister({ storage: window.localStorage, key: "pos.cache" }) : null;
+const persister = IS_NATIVE ? createSyncStoragePersister({ storage: window.localStorage, key: DEVICE_CACHE_KEY }) : null;
 
 /** Native apps keep the last loaded data on the device, so they can show it (read-only) offline. */
 function DataProvider({ children }: { children: ReactNode }) {

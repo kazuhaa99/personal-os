@@ -55,7 +55,32 @@ async function authHeaders(path: string): Promise<Record<string, string>> {
   return access ? { Authorization: `Bearer ${access}` } : {};
 }
 
-async function request<T>(method: string, path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+/**
+ * fetch() with our credentials. Native: a 401 refreshes the session once and repeats the request
+ * (or just repeats it, when another request already refreshed meanwhile). A request that can't
+ * reach the server at all fails with a plain "no connection" ApiError (status 0).
+ */
+async function authedFetch(path: string, init: Omit<RequestInit, "headers"> & { headers?: Record<string, string> } = {}): Promise<Response> {
+  let sentWith: string | undefined;
+  const send = async () => {
+    const auth = await authHeaders(path);
+    sentWith = auth.Authorization;
+    return fetch(apiUrl(path), { ...init, headers: { ...init.headers, ...auth } });
+  };
+  try {
+    let res = await send();
+    if (IS_NATIVE && res.status === 401 && !isTokenEndpoint(path)) {
+      const now = accessToken();
+      if ((now && `Bearer ${now}` !== sentWith) || (await refreshSession()) === "ok") res = await send();
+    }
+    return res;
+  } catch (e) {
+    if (e instanceof TypeError) throw new ApiError(0, t("No connection to the server"), "offline");
+    throw e;
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown, init: Omit<RequestInit, "headers"> = {}): Promise<T> {
   // Accept-Language lets the server localise generated text (insights).
   const headers: Record<string, string> = { "Accept-Language": getLang() };
   let payload: BodyInit | undefined;
@@ -64,15 +89,7 @@ async function request<T>(method: string, path: string, body?: unknown, init: Re
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const send = async () => fetch(apiUrl(path), { method, headers: { ...headers, ...(await authHeaders(path)) }, body: payload, ...init });
-  const sentWith = IS_NATIVE ? accessToken() : null;
-  let res = await send();
-  // Native: an expired access token is refreshed once and the request repeated. If another request
-  // already refreshed meanwhile, just repeat with the new token.
-  if (IS_NATIVE && res.status === 401 && !isTokenEndpoint(path)
-      && (accessToken() !== sentWith || (await refreshSession()) === "ok")) {
-    res = await send();
-  }
+  const res = await authedFetch(path, { method, headers, body: payload, ...init });
   if (res.status === 204) return undefined as T;
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await res.json() : await res.text();
@@ -87,7 +104,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T = void>(path: string, body?: unknown) => request<T>("DELETE", path, body),
   async download(path: string, params: Query, filename: string) {
-    const res = await fetch(apiUrl(path + qs(params)), { headers: await authHeaders(path) });
+    const res = await authedFetch(path + qs(params));
     if (!res.ok) throw new ApiError(res.status, t("Export failed ({status})", { status: res.status }));
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");

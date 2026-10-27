@@ -251,6 +251,7 @@ export const more: Dict = {
   "Buttons, links and highlights take the most vivid colour of the wallpaper, adjusted so text stays readable. Charts keep their own colours.": "Кнопки, ссылки и выделения берут самый яркий цвет обоев, подогнанный так, чтобы текст оставался читаемым. Графики сохраняют свои цвета.",
   // native apps (iOS / macOS)
   "No connection to the server. Showing saved data; changes are off until it's back.": "Нет связи с сервером. Показаны сохранённые данные; изменения недоступны, пока связь не вернётся.",
+  "No connection to the server": "Нет связи с сервером",
   "Unlock Personal OS": "Разблокировать Personal OS",
   "Personal OS is locked": "Personal OS заблокирован",
   "Unlock": "Разблокировать",

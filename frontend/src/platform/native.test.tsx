@@ -28,15 +28,27 @@ describe("offline", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("never queues writes for later: a change made offline fails at once", async () => {
+  it("native apps never queue writes for later: a change made offline fails at once", async () => {
     const { createQueryClient } = await import("@/lib/queryClient");
-    const client = createQueryClient();
+    const client = createQueryClient({ persist: true });
     act(() => onlineManager.setOnline(false));
     const save = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     const mutation = client.getMutationCache().build(client, { mutationFn: save, retry: false });
     await expect(mutation.execute(undefined)).rejects.toThrow();
     expect(save).toHaveBeenCalledTimes(1);
     expect(mutation.state.isPaused).toBe(false);
+  });
+
+  it("the web keeps TanStack's default (pause while offline)", async () => {
+    const { createQueryClient } = await import("@/lib/queryClient");
+    expect(createQueryClient().getDefaultOptions().mutations?.networkMode).toBeUndefined();
+  });
+
+  it("the on-device copy can be wiped at once", async () => {
+    const { clearDeviceCache, DEVICE_CACHE_KEY } = await import("@/lib/queryClient");
+    localStorage.setItem(DEVICE_CACHE_KEY, "{\"secret\":1}");
+    clearDeviceCache();
+    expect(localStorage.getItem(DEVICE_CACHE_KEY)).toBeNull();
   });
 });
 
@@ -49,9 +61,41 @@ describe("Face ID / Touch ID lock", () => {
     const { BiometricLock } = await import("@/components/native/BiometricLock");
     render(<BiometricLock><p>private data</p></BiometricLock>);
     await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("private data")).toBeNull();
+    // Covered and unreachable, but still mounted: an open form survives the lock.
+    expect(screen.getByText("private data").closest("[inert]")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /unlock/i }));
-    await waitFor(() => expect(screen.getByText("private data")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("private data").closest("[inert]")).toBeNull());
+  });
+
+  it("hides the content while the app is in the background (app switcher snapshot)", async () => {
+    let setActive: (active: boolean) => void = () => {};
+    await shell("ios", {
+      biometricStatus: async () => ({ available: true, kind: "face" }),
+      biometricVerify: vi.fn().mockResolvedValue(true),
+      onAppStateChange: (cb: (active: boolean) => void) => { setActive = cb; return () => {}; },
+    });
+    const { BiometricLock } = await import("@/components/native/BiometricLock");
+    render(<BiometricLock><p>private data</p></BiometricLock>);
+    await waitFor(() => expect(screen.getByText("private data").closest("[inert]")).toBeNull());
+    act(() => setActive(false));
+    expect(screen.getByText("private data").closest("[inert]")).not.toBeNull();
+    act(() => setActive(true)); // back within a minute: no new prompt needed
+    expect(screen.getByText("private data").closest("[inert]")).toBeNull();
+  });
+
+  it("turning the lock on takes effect without a restart", async () => {
+    localStorage.setItem("pos.biometricLock", "0");
+    const verify = vi.fn().mockResolvedValue(true);
+    let setActive: (active: boolean) => void = () => {};
+    await shell("ios", {
+      biometricStatus: async () => ({ available: true, kind: "face" }), biometricVerify: verify,
+      onAppStateChange: (cb: (active: boolean) => void) => { setActive = cb; return () => {}; },
+    });
+    const { BiometricLock, setBiometricLockEnabled } = await import("@/components/native/BiometricLock");
+    render(<BiometricLock><p>private data</p></BiometricLock>);
+    act(() => setBiometricLockEnabled(true));
+    act(() => setActive(false));
+    expect(screen.getByText("private data").closest("[inert]")).not.toBeNull();
   });
 
   it("stays out of the way when it is off, on the web, or without biometrics", async () => {
@@ -61,7 +105,7 @@ describe("Face ID / Touch ID lock", () => {
       await shell(platform, { biometricStatus: async () => ({ available, kind: available ? "face" : null }), biometricVerify: verify });
       const { BiometricLock } = await import("@/components/native/BiometricLock");
       const { unmount } = render(<BiometricLock><p>private data</p></BiometricLock>);
-      await waitFor(() => expect(screen.getByText("private data")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("private data").closest("[inert]")).toBeNull());
       unmount();
     }
     expect(verify).not.toHaveBeenCalled();
@@ -77,7 +121,7 @@ describe("Face ID / Touch ID lock", () => {
     });
     const { BiometricLock } = await import("@/components/native/BiometricLock");
     render(<BiometricLock><p>private data</p></BiometricLock>);
-    await waitFor(() => expect(screen.getByText("private data")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("private data").closest("[inert]")).toBeNull());
     vi.useFakeTimers({ toFake: ["Date"] });
     act(() => resume());
     vi.useRealTimers();

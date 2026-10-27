@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/api";
 import { signOut } from "@/lib/nativeSession";
+import { clearDeviceCache } from "@/lib/queryClient";
 import { IS_NATIVE } from "@/platform";
 import { t } from "@/lib/i18n";
 import type { AuthMe, AuthUser } from "@/lib/types";
@@ -44,10 +45,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
     await qc.cancelQueries();
     qc.setQueryData<AuthState>(ME_KEY, { authenticated: false, user: null, registration_open: prev?.registration_open ?? false, auth_enabled: true });
     qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth" });
+    if (IS_NATIVE) clearDeviceCache();
   }, [qc]);
   const setUser = useCallback((u: AuthUser) => qc.setQueryData<AuthState>(ME_KEY, (s) => (s ? { ...s, user: u } : s)), [qc]);
   const user = data?.user ?? null;
   const value = useMemo(() => ({ user, username: user?.username ?? null, logout, setUser }), [user, logout, setUser]);
+
+  // Native apps keep data on the device: once the login screen is up (signed out here or
+  // elsewhere), drop the previous account's data from memory and from the device.
+  const signedOut = !!data && !data.authenticated;
+  useEffect(() => {
+    if (!IS_NATIVE || !signedOut) return;
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "auth" });
+    clearDeviceCache();
+  }, [qc, signedOut]);
 
   if (isLoading) return <div className="fixed inset-0 grid place-items-center"><Spinner /></div>;
   if (error && !data) {

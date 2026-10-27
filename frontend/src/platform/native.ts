@@ -81,11 +81,11 @@ const macos: Bridge = {
   },
   biometricStatus: async () => (await import("@tauri-apps/api/core")).invoke<BiometricStatus>("biometric_status"),
   biometricVerify: async (reason) => (await import("@tauri-apps/api/core")).invoke<boolean>("biometric_verify", { reason }),
-  onAppStateChange(cb) {
-    const on = () => cb(document.visibilityState === "visible");
-    document.addEventListener("visibilitychange", on);
-    return () => document.removeEventListener("visibilitychange", on);
-  },
+  // The window losing focus (another app, hidden, minimised) counts as "in the background".
+  onAppStateChange: (cb) => lazyListener(async () => {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    return getCurrentWindow().onFocusChanged(({ payload: focused }) => cb(focused));
+  }),
   onMenuCommand: (cb) => lazyListener(async () => {
     const { listen } = await import("@tauri-apps/api/event");
     return listen<string>("menu", (e) => cb(e.payload));

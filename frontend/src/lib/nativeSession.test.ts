@@ -97,6 +97,72 @@ describe("native sign-in", () => {
     expect(authOf(fetch.mock.calls[2])).toBeNull();
   });
 
+  it("refreshes an access token that is about to expire before using it", async () => {
+    const { session, api } = await native();
+    fetch.mockResolvedValueOnce(json(pair(1)));
+    await session.signIn("me", "pw");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 15 * 60_000);
+    fetch.mockResolvedValueOnce(json(pair(2))).mockResolvedValueOnce(json({ authenticated: true }));
+    await api.get("/auth/me"); // never answers 401, so it must not rely on one
+    vi.useRealTimers();
+    expect(fetch.mock.calls[1][0]).toBe("https://pos.example.com/api/auth/token/refresh");
+    expect(authOf(fetch.mock.calls[2])).toBe("Bearer posat_a2");
+  });
+
+  it("a refresh that finishes after sign-out does not bring the session back", async () => {
+    const { store, session } = await native();
+    fetch.mockResolvedValueOnce(json(pair(1)));
+    await session.signIn("me", "pw");
+    let answer: (r: Response) => void = () => {};
+    fetch.mockImplementationOnce(() => new Promise<Response>((resolve) => { answer = resolve; }));
+    const refreshing = session.refreshSession(); // e.g. started by a request just before sign-out
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    fetch.mockResolvedValue(new Response(null, { status: 204 }));
+    await session.signOut();
+    answer(json(pair(2)));
+    await refreshing;
+    expect(store.data["pos.refreshToken"]).toBeUndefined();
+    expect(session.accessToken()).toBeNull();
+  });
+
+  it("signing out with an expired access token refreshes it first, so the server session really ends", async () => {
+    const { session } = await native(memoryStore({ "pos.refreshToken": "posrt_f.r1" }));
+    fetch.mockResolvedValueOnce(json(pair(2))).mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await session.signOut();
+    expect(fetch.mock.calls[1][0]).toBe("https://pos.example.com/api/auth/token/revoke");
+    expect(authOf(fetch.mock.calls[1])).toBe("Bearer posat_a2");
+  });
+
+  it("a keychain that can't be written is a failed sign-in, not a half-signed-in app", async () => {
+    const store = memoryStore();
+    store.set = async () => { throw new Error("keychain locked"); };
+    const { session } = await native(store);
+    fetch.mockResolvedValueOnce(json(pair(1)));
+    await expect(session.signIn("me", "pw")).rejects.toThrow("keychain locked");
+    expect(session.accessToken()).toBeNull();
+  });
+
+  it("downloads (CSV export) refresh an expired token too", async () => {
+    const { session, api } = await native();
+    fetch.mockResolvedValueOnce(json(pair(1)));
+    await session.signIn("me", "pw");
+    fetch.mockImplementation(async (url: string, init: RequestInit) => {
+      if (url.endsWith("/auth/token/refresh")) return json(pair(2));
+      return authOf([url, init]) === "Bearer posat_a2" ? new Response("a,b") : json({ detail: "Sign in required" }, 401);
+    });
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await api.download("/transactions/export", {}, "tx.csv");
+    expect(fetch.mock.calls.some((c) => String(c[0]).endsWith("/auth/token/refresh"))).toBe(true);
+  });
+
+  it("says plainly when the server can't be reached", async () => {
+    const { api } = await native(memoryStore({ "pos.refreshToken": "posrt_f.r1" }));
+    fetch.mockRejectedValue(new TypeError("Load failed"));
+    await expect(api.get("/accounts")).rejects.toThrow(/no connection to the server/i);
+  });
+
   it("is not used on the web", async () => {
     vi.resetModules();
     const { api } = await import("./api");
