@@ -1,7 +1,7 @@
 """user accounts, per-user data, profile and income sources
 
 Existing single-owner data is assigned to the first account (created here from
-POS_AUTH_USERNAME / POS_AUTH_PASSWORD, default admin / adminuser123).
+POS_AUTH_USERNAME / POS_AUTH_PASSWORD; without a password a random one is logged).
 
 Revision ID: 0002
 Revises: 0001
@@ -48,7 +48,7 @@ def _timestamps() -> list[sa.Column]:
 
 def upgrade() -> None:
     from app.config import get_settings
-    from app.services.auth import hash_password
+    from app.services.auth import hash_password, initial_admin_password
 
     op.create_table(
         "users",
@@ -77,7 +77,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     admin_id = bind.execute(sa.text(
         "INSERT INTO users (username, email, password_hash, code_attempts, session_epoch) "
-        "VALUES (:u, '', :h, 0, 0) RETURNING id"), {"u": s.auth_username.strip().lower(), "h": hash_password(s.auth_password)}).scalar_one()
+        "VALUES (:u, '', :h, 0, 0) RETURNING id"), {"u": s.auth_username.strip().lower(), "h": hash_password(initial_admin_password())}).scalar_one()
 
     for table in OWNED:
         _own_existing(table, admin_id)

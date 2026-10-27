@@ -31,13 +31,13 @@ class Settings(BaseSettings):
     # "Authorization: Bearer <token>". Strongly recommended if the API is reachable
     # from anything other than localhost.
     api_token: str | None = Field(default=None, repr=False)
-    # The first account, created on first start when no users exist yet.
-    # Change the password (POS_AUTH_PASSWORD, or in the app) before exposing the app.
+    # The first account, created on first start when no users exist yet. Without
+    # POS_AUTH_PASSWORD it gets a random password, written once to the server log.
     auth_enabled: bool = True
     # Anyone who can reach the app may create an account (each sees only their own data).
     allow_registration: bool = True
     auth_username: str = "admin"
-    auth_password: str = Field(default="adminuser123", repr=False)
+    auth_password: str | None = Field(default=None, repr=False)
     # Signs session cookies. If unset, a random key is generated and kept in
     # backend/.secret_key so sessions survive restarts.
     secret_key: str | None = Field(default=None, repr=False)

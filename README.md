@@ -66,9 +66,10 @@ npm run dev                                # http://127.0.0.1:5173 (proxies /api
 
 API docs (OpenAPI): http://127.0.0.1:8000/docs
 
-**Sign in** with `admin` / `adminuser123` — the first account, created on first start (existing data
-belongs to it). **Change that password** (Profile → Login & security) before the app is reachable from anywhere
-but your own machine. Anyone else can **create an account** on the login screen; each account has its own
+**Sign in** as `admin` — the first account, created on first start (existing data belongs to it). Its password is
+`POS_AUTH_PASSWORD` if you set one (at least 8 characters); otherwise a random password is generated and written
+once to the API log (`Created the first account 'admin'. Its password …`; with Docker: `docker compose logs api`).
+Change it in Profile → Login & security. Anyone else can **create an account** on the login screen; each account has its own
 tasks, finances, habits, settings and profile.
 
 ### Accounts, email confirmation and the Profile
@@ -308,7 +309,7 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 | `POS_MIGRATION_DATABASE_URL` | = `POS_DATABASE_URL` | Owner URL for `alembic` (tables, policies, grants) |
 | `POS_APP_DB_ROLE` | `personal_os_app` | Role that migrations grant data access to |
 | `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed origins (`*` is ignored) |
-| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / `adminuser123` | First account, created only if no users exist yet. **Change the password before exposing the app** |
+| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / random | First account, created only if no users exist yet. Without a password a random one is written once to the API log |
 | `POS_ALLOW_REGISTRATION` | `true` | Let new people create accounts (needs working email) |
 | `POS_SMTP_HOST` / `POS_SMTP_PORT` / `POS_SMTP_USER` | `smtp.gmail.com` / `587` / `spokeesofficial@gmail.com` | Outgoing mail (STARTTLS) |
 | `POS_SMTP_PASSWORD` | empty | SMTP / Gmail App password — required to send confirmation codes |
@@ -359,7 +360,7 @@ alembic check                                      # verify models and migration
   before each statement. Even raw SQL can't read or write another user's rows, and with nobody signed in nothing
   is visible. It only applies to a non-superuser role without `BYPASSRLS` — hence the separate `personal_os_app`
   role; the API logs a warning at startup if it connects as a role that would bypass RLS.
-- **The default `admin` / `adminuser123` is public knowledge** (it is in this README) — change it, set
+- The first account never has a known default password (see above). Before exposing the app set
   `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS (reverse proxy) or a VPN such as
   Tailscale before exposing it beyond localhost.
 - `POS_API_TOKEN` (optional) is a shared secret for scripts and acts as the first account; when entered in

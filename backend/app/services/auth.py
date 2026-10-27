@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import logging
 import re
 import secrets
 import time
@@ -24,6 +25,8 @@ EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
 CODE_TTL = timedelta(minutes=15)
 CODE_RESEND_AFTER = timedelta(seconds=60)
 CODE_MAX_ATTEMPTS = 5
+
+log = logging.getLogger("personal_os")
 
 _KEY_FILE = Path(__file__).resolve().parents[2] / ".secret_key"
 _key_cache: bytes | None = None
@@ -138,12 +141,24 @@ def provision(db: Session, user: User) -> None:
         ensure_profile(db)
 
 
+def initial_admin_password() -> str:
+    """POS_AUTH_PASSWORD, or (unset) a random one written once to the server log: never a known default."""
+    s = get_settings()
+    if s.auth_password:
+        if len(s.auth_password) < 8:
+            raise RuntimeError("POS_AUTH_PASSWORD must be at least 8 characters")
+        return s.auth_password
+    password = secrets.token_urlsafe(18)
+    log.warning("Created the first account %r. Its password (change it after signing in): %s", s.auth_username, password)
+    return password
+
+
 def ensure_admin(db: Session) -> None:
     """On first start create the initial account from POS_AUTH_USERNAME / POS_AUTH_PASSWORD."""
     if first_user_id(db) is not None:
         return
     s = get_settings()
-    user = User(username=normalize_username(s.auth_username), email="", password_hash=hash_password(s.auth_password))
+    user = User(username=normalize_username(s.auth_username), email="", password_hash=hash_password(initial_admin_password()))
     db.add(user)
     db.commit()
     provision(db, user)

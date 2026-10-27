@@ -5,6 +5,7 @@ os.environ.setdefault(
 )
 os.environ["POS_API_TOKEN"] = ""
 os.environ["POS_AUTH_ENABLED"] = "false"
+os.environ["POS_AUTH_PASSWORD"] = "adminuser123"  # tests sign in as the first account
 
 from datetime import date  # noqa: E402
 
