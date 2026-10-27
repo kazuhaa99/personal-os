@@ -15,11 +15,11 @@
     "build:mac": "tsc -b && VITE_PLATFORM=macos vite build --outDir dist-mac --emptyOutDir",
     "build:ios": "tsc -b && VITE_PLATFORM=ios vite build --outDir dist-ios --emptyOutDir",
     "mac:dev": "tauri dev",
-    "mac:build": "tauri build --bundles app",
+    "mac:build": "node scripts/tauri-build.mjs --bundles app",
     "ios:dev": "VITE_API_BASE=${VITE_API_BASE:-http://127.0.0.1:8000/api} npm run build:ios && cap sync ios && cap run ios",
     "ios:build": "npm run build:ios && cap sync ios && cap open ios",
     "native:icons": "tauri icon public/icons/icon-1024.png -o src-tauri/icons && rm -rf src-tauri/icons/android src-tauri/icons/ios && capacitor-assets generate --ios --assetPath resources",
-    "mac:dmg": "tauri build --bundles app,dmg"
+    "mac:dmg": "node scripts/tauri-build.mjs --bundles app,dmg"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
