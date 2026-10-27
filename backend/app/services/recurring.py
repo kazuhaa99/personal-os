@@ -94,10 +94,15 @@ def update_rule(db: Session, rule_id: int, data: RecurringUpdate) -> RecurringRu
             fields.pop(key)
     if "end_date" in fields and fields["end_date"] and fields["end_date"] < rule.start_date:
         raise ValidationFailed("end_date must not be before start_date")
+    old_end = rule.end_date
     for key, value in fields.items():
         setattr(rule, key, q(value) if key == "amount" else value)
     if rule.end_date and rule.next_due_date and rule.next_due_date > rule.end_date:
         rule.next_due_date = None
+    elif rule.next_due_date is None and old_end is not None and "next_due_date" not in fields \
+            and (rule.end_date is None or rule.end_date > old_end):
+        # A finished schedule got longer: everything up to the old end was handled already.
+        rule.next_due_date = _next_open(db, rule, after=old_end)
     db.commit()
     return rule
 
@@ -134,11 +139,16 @@ def _advance(db: Session, rule: RecurringRule, handled: date) -> None:
     """Move next_due_date past `handled` only if `handled` *is* the next due occurrence,
     so confirming a later occurrence early never hides earlier unconfirmed ones."""
     if rule.next_due_date is not None and handled == rule.next_due_date:
-        confirmed = _confirmed_dates(db, rule.id)
-        nxt = next_occurrence_after(rule.start_date, rule.frequency, handled, rule.end_date)
-        while nxt is not None and nxt in confirmed:
-            nxt = next_occurrence_after(rule.start_date, rule.frequency, nxt, rule.end_date)
-        rule.next_due_date = nxt
+        rule.next_due_date = _next_open(db, rule, after=handled)
+
+
+def _next_open(db: Session, rule: RecurringRule, after: date) -> date | None:
+    """First occurrence after `after` that isn't confirmed yet, or None once the schedule ends."""
+    confirmed = _confirmed_dates(db, rule.id)
+    nxt = next_occurrence_after(rule.start_date, rule.frequency, after, rule.end_date)
+    while nxt is not None and nxt in confirmed:
+        nxt = next_occurrence_after(rule.start_date, rule.frequency, nxt, rule.end_date)
+    return nxt
 
 
 def confirm_occurrence(db: Session, rule_id: int, data: ConfirmOccurrence) -> Transaction:
