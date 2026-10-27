@@ -89,6 +89,8 @@ def update_rule(db: Session, rule_id: int, data: RecurringUpdate) -> RecurringRu
     if "account_id" in fields or "category_id" in fields:
         _check_refs(db, rule.type, fields.get("account_id") or rule.account_id,
                     fields.get("category_id") or rule.category_id)
+    if fields.get("account_id") and not fields.get("amount"):
+        _require_same_currency(db, rule, fields["account_id"])
     for key in ("name", "amount", "account_id", "category_id", "is_active"):
         if key in fields and fields[key] is None:
             fields.pop(key)
@@ -104,6 +106,7 @@ def update_rule(db: Session, rule_id: int, data: RecurringUpdate) -> RecurringRu
         # A finished schedule got longer: everything up to the old end was handled already.
         rule.next_due_date = _next_open(db, rule, after=old_end)
     db.commit()
+    db.refresh(rule)  # sessions keep objects after commit: reload the (possibly new) account and category
     return rule
 
 
@@ -151,8 +154,17 @@ def _next_open(db: Session, rule: RecurringRule, after: date) -> date | None:
     return nxt
 
 
+def _require_same_currency(db: Session, rule: RecurringRule, account_id: int) -> None:
+    """The rule's amount is in its account's currency: another currency needs its own amount."""
+    acc = require_usable_account(db, account_id)
+    if acc.currency != rule.account.currency:
+        raise ValidationFailed(f"'{acc.name}' is in {acc.currency}: enter the amount in {acc.currency}", code="currency_mismatch")
+
+
 def confirm_occurrence(db: Session, rule_id: int, data: ConfirmOccurrence) -> Transaction:
     rule = get_rule(db, rule_id)
+    if data.account_id and not data.amount:
+        _require_same_currency(db, rule, data.account_id)
     if not _is_valid_occurrence(rule, data.occurrence_date):
         raise ValidationFailed(f"{data.occurrence_date} is not a scheduled date for '{rule.name}'")
     if data.occurrence_date in _confirmed_dates(db, rule.id):

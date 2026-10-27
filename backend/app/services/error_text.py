@@ -57,6 +57,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "Too many wrong codes. Request a new one.": ("Слишком много неверных кодов. Запросите новый.", "잘못된 코드를 너무 많이 입력했어요. 새 코드를 요청해 주세요."),
     "Email sending is not configured on the server (POS_SMTP_PASSWORD)": ("На сервере не настроена отправка писем (POS_SMTP_PASSWORD)", "서버에 메일 발송이 설정되지 않았어요 (POS_SMTP_PASSWORD)"),
     "Could not send the email. Check the SMTP settings and try again.": ("Не удалось отправить письмо. Проверьте настройки SMTP и попробуйте снова.", "메일을 보내지 못했어요. SMTP 설정을 확인하고 다시 시도해 주세요."),
+    "'{acc.name}' is in {acc.currency}: enter the amount in {acc.currency}": ("Счёт «{acc.name}» в {acc.currency}: укажите сумму в {acc.currency}", "'{acc.name}' 계좌는 {acc.currency} 통화예요. {acc.currency}로 금액을 입력해 주세요"),
     # --- generic
     "{target.__name__} {value} not found": ("Не найдено: {target.__name__} {value}", "찾을 수 없어요: {target.__name__} {value}"),
     "'end' must not be before 'start'": ("Конец периода не может быть раньше начала", "종료일은 시작일보다 빠를 수 없어요"),
