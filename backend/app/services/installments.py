@@ -157,6 +157,8 @@ def _installment_category(db: Session) -> Category:
 
 def record_payment(db: Session, plan_id: int, data: InstallmentPaymentCreate) -> InstallmentPayment:
     plan = get_plan(db, plan_id)
+    # Lock and reload the plan: a payment recorded meanwhile must count against what's left.
+    db.refresh(plan, with_for_update=True)
     if plan.status in ("paid_off", "cancelled"):
         raise ValidationFailed(f"'{plan.name}' is {plan.status.replace('_', ' ')}; no further payments expected")
     remaining = outstanding(plan)
