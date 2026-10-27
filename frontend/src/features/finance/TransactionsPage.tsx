@@ -13,6 +13,9 @@ import { Badge, Button, Card, cn, DemoBadge, EmptyState, ErrorBlock, Input, Load
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { toast } from "sonner";
 import { ImportDialog } from "./ImportDialog";
+import { dateParam, idParam, offsetParam, oneOf } from "@/lib/urlParams";
+
+const TX_TYPES = ["", "income", "expense", "transfer"] as const;
 
 const PAGE = 50;
 const ISO = "yyyy-MM-dd";
@@ -40,14 +43,14 @@ export function TransactionsPage() {
   const [search, setSearch] = useState(params.get("q") ?? "");
 
   const filter = {
-    start: params.get("start") ?? "",
-    end: params.get("end") ?? "",
-    account_id: params.get("account_id") ?? "",
-    type: params.get("type") ?? "",
-    category_id: params.get("category_id") ?? "",
+    start: dateParam(params.get("start")),
+    end: dateParam(params.get("end")),
+    account_id: idParam(params.get("account_id")),
+    type: oneOf(params.get("type"), TX_TYPES, ""),
+    category_id: idParam(params.get("category_id")),
     q: params.get("q") ?? "",
   };
-  const offset = Number(params.get("offset") ?? 0);
+  const offset = offsetParam(params.get("offset"));
   const set = (patch: Record<string, string>) => {
     const next = new URLSearchParams(params);
     for (const [k, v] of Object.entries(patch)) v ? next.set(k, v) : next.delete(k);

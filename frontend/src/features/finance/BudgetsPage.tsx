@@ -10,6 +10,7 @@ import { useAction, useCategories } from "@/lib/queries";
 import type { BudgetLine, BudgetMonth } from "@/lib/types";
 import { Modal, useConfirm } from "@/components/ui/dialog";
 import { Button, Card, cn, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Progress, Select } from "@/components/ui/primitives";
+import { monthParam } from "@/lib/urlParams";
 
 function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolean; onOpenChange: (o: boolean) => void; month: string; line: BudgetLine | null; usedIds: number[] }) {
   const { data: categories = [] } = useCategories();
@@ -48,7 +49,7 @@ function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolea
 
 export function BudgetsPage() {
   const [params, setParams] = useSearchParams();
-  const month = params.get("month") ?? format(new Date(), "yyyy-MM");
+  const month = monthParam(params.get("month"), format(new Date(), "yyyy-MM"));
   const confirm = useConfirm();
   const [form, setForm] = useState<{ open: boolean; line: BudgetLine | null }>({ open: false, line: null });
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["budgets", month], queryFn: () => api.get<BudgetMonth>("/budgets", { month }) });

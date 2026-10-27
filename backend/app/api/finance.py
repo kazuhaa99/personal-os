@@ -32,7 +32,7 @@ from app.schemas.finance import (
     TransactionUpdate,
 )
 from app.services import accounts, budgets, categories, csv_io, installments, recurring, transactions
-from app.services.dates import parse_month, today_for
+from app.services.dates import MONTH_PATTERN, parse_month, today_for
 
 router = APIRouter()
 
@@ -151,7 +151,7 @@ def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/budgets", response_model=BudgetMonth, tags=["budgets"])
-def get_budgets(month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"), db: Session = Depends(get_db)):
+def get_budgets(month: str | None = Query(default=None, pattern=MONTH_PATTERN), db: Session = Depends(get_db)):
     return budgets.budget_month(db, parse_month(month) if month else today_for(db))
 
 

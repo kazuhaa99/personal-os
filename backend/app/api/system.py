@@ -12,7 +12,7 @@ from app.errors import ValidationFailed
 from app.schemas.planning import SettingsOut, SettingsUpdate
 from app.services import analytics, dashboard, demo, insights
 from app.services.i18n import use_language
-from app.services.dates import month_end, month_start, parse_month, today_for
+from app.services.dates import MONTH_PATTERN, month_end, month_start, parse_month, today_for
 from app.services.settings import get_app_settings, update_app_settings
 
 router = APIRouter()
@@ -57,7 +57,6 @@ def _range(db: Session, start: str | None, end: str | None) -> tuple[date, date]
     return s, e
 
 
-MONTH_PATTERN = r"^\d{4}-\d{2}$"
 
 
 @router.get("/analytics/summary", tags=["analytics"])

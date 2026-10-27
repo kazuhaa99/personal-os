@@ -13,8 +13,11 @@ import { useConfirm } from "@/components/ui/dialog";
 import { Button, Card, CardHeader, cn, EmptyState, ErrorBlock, LoadingBlock, Segmented, Select } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "./TaskRow";
+import { oneOf } from "@/lib/urlParams";
 
-type View = "today" | "upcoming" | "all" | "overdue" | "completed";
+const VIEWS = ["today", "upcoming", "all", "overdue", "completed"] as const;
+type View = (typeof VIEWS)[number];
+const PRIORITIES = ["", "low", "medium", "high", "urgent"] as const;
 
 const EMPTY: Record<View, [string, string]> = {
   today: ["Nothing due today", "Add something above, or enjoy the free time."],
@@ -73,8 +76,8 @@ function DayRing({ done, total }: { done: number; total: number }) {
 
 export function TasksPage() {
   const [params, setParams] = useSearchParams();
-  const view = (params.get("view") as View) ?? "today";
-  const priority = params.get("priority") ?? "";
+  const view = oneOf<View>(params.get("view"), VIEWS, "today");
+  const priority = oneOf(params.get("priority"), PRIORITIES, "");
   const category = params.get("category") ?? "";
   const confirm = useConfirm();
   const qa = useQuickActions();

@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
+from app.services.dates import MONTH_PATTERN
 from app.schemas.common import (
     ORM,
     Currency,
@@ -189,7 +190,7 @@ class TransactionPage(BaseModel):
 
 class BudgetSet(Input):
     category_id: int
-    month: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
+    month: Annotated[str, StringConstraints(pattern=MONTH_PATTERN)]
     amount: NonNegativeMoney
     is_active: bool = True
 
