@@ -41,6 +41,19 @@ const webCsp: Plugin = {
     process.env.VITE_PLATFORM ? html : html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP};" />`),
 };
 
+// Long-lived vendor chunks. By path, not by package list: the list form also pulls a package's own
+// dependencies into its chunk, and a small one shared with the app (clsx) then made the first
+// screen preload the whole charting library.
+const CHUNKS: [RegExp, string][] = [
+  [/\/node_modules\/(recharts|recharts-scale|victory-vendor|d3-[^/]+|decimal\.js-light)\//, "charts"],
+  [/\/node_modules\/(framer-motion|motion-dom|motion-utils)\//, "motion"],
+  [/\/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@remix-run\/router|@tanstack\/[^/]+|clsx)\//, "vendor"],
+];
+
+function chunkFor(id: string): string | undefined {
+  return CHUNKS.find(([pattern]) => pattern.test(id))?.[1];
+}
+
 export default defineConfig({
   base,
   plugins: [react(), webCsp],
@@ -55,7 +68,7 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: { output: { manualChunks: { charts: ["recharts"], motion: ["framer-motion"], vendor: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"] } } },
+    rollupOptions: { output: { manualChunks: chunkFor } },
   },
   test: {
     environment: "jsdom",

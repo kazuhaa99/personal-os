@@ -1,20 +1,22 @@
+import { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format as isoFormat, parseISO, subDays } from "date-fns";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckSquare, Flame, Plus, Target } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { api } from "@/lib/api";
-import { formatMoney, monthLabel, relativeDay, nowInAppZone } from "@/lib/format";
+import { formatMoney, relativeDay, nowInAppZone } from "@/lib/format";
 import { goalArt } from "@/lib/goalArt";
 import { format, t, tp } from "@/lib/i18n";
 import { useAction } from "@/lib/queries";
 import type { AnalyticsSummary, Dashboard, Habit } from "@/lib/types";
-import { AXIS, ChartTooltip, SERIES } from "@/components/charts/ChartCard";
+import { SERIES } from "@/components/charts/ChartCard";
 import { Button, Card, CardHeader, cn, DemoBadge, EmptyState, ErrorBlock, GlassCard, LoadingBlock, MoneyText, Progress } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { InsightList } from "./InsightList";
+
+const CashFlowChart = lazy(() => import("./CashFlowChart"));
 
 function greeting(hour: number) {
   if (hour < 5) return t("Good night");
@@ -155,14 +157,7 @@ export function OverviewPage() {
               action={hasFlow ? <span className="flex items-center gap-3 text-xs text-ink-3"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[0] }} />{t("Income")}</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[1] }} />{t("Expenses")}</span></span> : undefined} />
             <div className="px-3 pb-3 h-[180px]">
               {!hasFlow ? <EmptyState className="py-8" title={t("No cash flow yet")} body={t("Income and expenses appear here as you record them.")} /> : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={flow} barGap={2} barCategoryGap="30%">
-                    <XAxis dataKey="month" tickFormatter={(m) => monthLabel(m, "MMM")} stroke={AXIS} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{ fill: "rgb(var(--fill) / 0.05)" }} content={<ChartTooltip format={(v) => formatMoney(v.toFixed(2), cur)} labelFormat={(l) => monthLabel(l, "MMMM yyyy")} />} />
-                    <Bar dataKey="income" name={t("Income")} fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={22} />
-                    <Bar dataKey="expense" name={t("Expenses")} fill={SERIES[1]} radius={[4, 4, 0, 0]} maxBarSize={22} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Suspense fallback={null}><CashFlowChart flow={flow} currency={cur} /></Suspense>
               )}
             </div>
             {hasFlow && <p className="px-5 pb-3 -mt-1 text-xs text-ink-3">{t("Average spending {amount} / month across months with data", { amount: summary?.cash_flow.average_monthly_expense ? formatMoney(summary.cash_flow.average_monthly_expense, cur) : "—" })}</p>}
