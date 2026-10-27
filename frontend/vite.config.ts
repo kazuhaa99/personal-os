@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
@@ -17,9 +17,33 @@ if (process.env.VITE_PLATFORM && process.argv.includes("build") && !apiBase) {
   throw new Error("Native builds need VITE_API_BASE, e.g. VITE_API_BASE=https://pos.example.com/api npm run mac:build");
 }
 
+// Content Security Policy of the web build: only this origin's own scripts (no inline ones, see
+// public/boot.js), styles, images and API. A meta tag, so it holds however the files are served.
+// The native shells set their own policy (src-tauri/tauri.conf.json); the dev server needs inline scripts.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'", // React and the toast library set inline styles
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
+const webCsp: Plugin = {
+  name: "pos-web-csp",
+  apply: "build",
+  transformIndexHtml: (html) =>
+    process.env.VITE_PLATFORM ? html : html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP};" />`),
+};
+
 export default defineConfig({
   base,
-  plugins: [react()],
+  plugins: [react(), webCsp],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   server: {
     host: "127.0.0.1",

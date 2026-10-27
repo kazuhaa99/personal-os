@@ -158,3 +158,19 @@ test.describe("PWA under its own path", () => {
     }
   });
 });
+
+test("the web app runs under a strict Content Security Policy", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) violations.push(m.text()); });
+  await signIn(page, ADMIN.login, ADMIN.password);
+  await expect(overview(page)).toBeVisible();
+  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  expect(csp).toContain("script-src 'self';");
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toMatch(/^(light|dark)$/);
+  for (const path of ["tasks", "goals", "habits", "finances", "finances/budgets", "analytics", "settings", "profile"]) {
+    await page.goto(`./${path}`);
+    await page.waitForLoadState("networkidle");
+  }
+  expect(violations).toEqual([]);
+  await signOut(page);
+});

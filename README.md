@@ -104,8 +104,13 @@ location /personalos/ {
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     client_max_body_size 6m;
+    # HTTPS only from now on; set it here, where TLS ends (it covers the whole host name).
+    add_header Strict-Transport-Security "max-age=31536000" always;
 }
 ```
+
+The web build carries a strict Content Security Policy (`vite.config.ts`: only its own scripts, styles,
+images and API), so the host proxy doesn't need to add one.
 
 The service worker registers with the prefix as its scope, so it never controls the host site's other pages.
 Sharing a domain still means sharing an origin (localStorage, script-readable cookies) with the host site — a
