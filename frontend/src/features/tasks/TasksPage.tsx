@@ -14,6 +14,7 @@ import { Button, Card, CardHeader, cn, EmptyState, ErrorBlock, LoadingBlock, Seg
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "./TaskRow";
 import { oneOf } from "@/lib/urlParams";
+import { viewCounts } from "./viewCounts";
 
 const VIEWS = ["today", "upcoming", "all", "overdue", "completed"] as const;
 type View = (typeof VIEWS)[number];
@@ -89,7 +90,8 @@ export function TasksPage() {
     queryFn: () => api.get<Task[]>("/tasks", { view, priority, category }),
   });
   const { data: upcoming = [] } = useQuery({ queryKey: ["tasks", "upcoming", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "upcoming" }) });
-  const { data: all = [] } = useQuery({ queryKey: ["tasks", "all", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "all" }) });
+  const { data: all } = useQuery({ queryKey: ["tasks", "all", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "all" }) });
+  const tabCounts = all ? viewCounts(all, today, { priority, category }) : undefined;
   const clearDone = useAction(async (ids: number[]) => { for (const id of ids) await api.del(`/tasks/${id}`); }, { success: t("Completed tasks cleared") });
 
   const set = (patch: Record<string, string>) => {
@@ -98,7 +100,7 @@ export function TasksPage() {
     setParams(n, { replace: true });
   };
 
-  const open = all.filter((t) => t.status !== "done");
+  const open = (all ?? []).filter((t) => t.status !== "done");
   const lists = Object.entries(open.reduce<Record<string, number>>((acc, t) => { const k = t.category ?? ""; acc[k] = (acc[k] ?? 0) + 1; return acc; }, {}))
     .sort((a, b) => b[1] - a[1]);
   const doneToday = counts?.done_today ?? 0;
@@ -112,10 +114,10 @@ export function TasksPage() {
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Segmented value={view} onChange={(v) => set({ view: v })} options={[
-            { value: "today", label: t("Today"), count: counts ? counts.today + counts.overdue : undefined },
-            { value: "upcoming", label: t("Upcoming"), count: counts?.upcoming_7d },
+            { value: "today", label: t("Today"), count: tabCounts?.today },
+            { value: "upcoming", label: t("Upcoming"), count: tabCounts?.upcoming },
             { value: "all", label: t("All") },
-            { value: "overdue", label: t("Overdue"), count: counts?.overdue },
+            { value: "overdue", label: t("Overdue"), count: tabCounts?.overdue },
             { value: "completed", label: t("Completed") },
           ]} />
           <div className="flex gap-2 ml-auto">
