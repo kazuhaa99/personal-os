@@ -15,6 +15,7 @@ import { Button, Card, CardHeader, cn, DemoBadge, EmptyState, ErrorBlock, GlassC
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { InsightList } from "./InsightList";
+import { LoadErrorBoundary } from "@/components/LoadErrorBoundary";
 
 const CashFlowChart = lazy(() => import("./CashFlowChart"));
 
@@ -157,7 +158,7 @@ export function OverviewPage() {
               action={hasFlow ? <span className="flex items-center gap-3 text-xs text-ink-3"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[0] }} />{t("Income")}</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[1] }} />{t("Expenses")}</span></span> : undefined} />
             <div className="px-3 pb-3 h-[180px]">
               {!hasFlow ? <EmptyState className="py-8" title={t("No cash flow yet")} body={t("Income and expenses appear here as you record them.")} /> : (
-                <Suspense fallback={null}><CashFlowChart flow={flow} currency={cur} /></Suspense>
+                <LoadErrorBoundary><Suspense fallback={null}><CashFlowChart flow={flow} currency={cur} /></Suspense></LoadErrorBoundary>
               )}
             </div>
             {hasFlow && <p className="px-5 pb-3 -mt-1 text-xs text-ink-3">{t("Average spending {amount} / month across months with data", { amount: summary?.cash_flow.average_monthly_expense ? formatMoney(summary.cash_flow.average_monthly_expense, cur) : "—" })}</p>}

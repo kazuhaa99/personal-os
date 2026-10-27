@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ComponentType } from "react";
+import { LoadErrorBoundary } from "./components/LoadErrorBoundary";
 import { Spinner } from "./components/ui/primitives";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
@@ -11,7 +12,7 @@ import { OverviewPage } from "./features/overview/OverviewPage";
 function page(load: () => Promise<ComponentType>) {
   const Lazy = lazy(() => load().then((component) => ({ default: component })));
   return function Page() {
-    return <Suspense fallback={<div className="grid place-items-center py-24"><Spinner /></div>}><Lazy /></Suspense>;
+    return <LoadErrorBoundary><Suspense fallback={<div className="grid place-items-center py-24"><Spinner /></div>}><Lazy /></Suspense></LoadErrorBoundary>;
   };
 }
 const AnalyticsPage = page(() => import("./features/analytics/AnalyticsPage").then((m) => m.AnalyticsPage));

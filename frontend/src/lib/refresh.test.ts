@@ -27,3 +27,9 @@ describe("affects: which cached queries an action in an area makes stale", () =>
     expect(stale(["habits"]) && stale(["goals"]) && !stale(["accounts"])).toBe(true);
   });
 });
+
+describe("affects: finance and the profile", () => {
+  it("a finance change refreshes the profile's income received this month", () => {
+    expect(affects(["finance"])(["profile"])).toBe(true);
+  });
+});

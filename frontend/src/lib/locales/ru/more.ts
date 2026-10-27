@@ -265,4 +265,6 @@ export const more: Dict = {
   "Touch ID": "Touch ID",
   "Off": "Выкл.",
   "On": "Вкл.",
+  "This page couldn't load. Reloading usually fixes it.": "Страница не загрузилась. Обычно помогает перезагрузка.",
+  "Reload": "Перезагрузить",
 };

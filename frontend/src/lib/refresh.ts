@@ -6,7 +6,7 @@ import type { QueryKey } from "@tanstack/react-query";
 export type Area = "finance" | "tasks" | "habits" | "goals" | "profile" | "insights" | "everything";
 
 const VIEWS: Record<Exclude<Area, "everything">, readonly string[]> = {
-  finance: ["transactions", "accounts", "categories", "budgets", "recurring", "expected", "installments", "analytics", "dashboard", "palette-tx"],
+  finance: ["transactions", "accounts", "categories", "budgets", "recurring", "expected", "installments", "analytics", "dashboard", "palette-tx", "profile"],
   tasks: ["tasks", "task-categories", "palette-tasks", "goals", "projects", "dashboard"],
   habits: ["habits", "dashboard"],
   goals: ["goals", "projects", "tasks", "dashboard"],

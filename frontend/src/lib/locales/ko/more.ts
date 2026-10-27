@@ -265,4 +265,6 @@ export const more: Dict = {
   "Touch ID": "Touch ID",
   "Off": "끔",
   "On": "켬",
+  "This page couldn't load. Reloading usually fixes it.": "페이지를 불러오지 못했어요. 새로고침하면 대개 해결돼요.",
+  "Reload": "새로고침",
 };
