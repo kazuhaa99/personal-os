@@ -9,12 +9,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { api } from "@/lib/api";
 import { resolveApiUrl } from "@/lib/base";
-import { formatMoney, nowInAppZone } from "@/lib/format";
+import { formatMoney, hasAppTimeZone, nowInAppZone } from "@/lib/format";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
-import { useAccounts } from "@/lib/queries";
+import { useAccounts, useSettings } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
 import type { Dashboard, Profile } from "@/lib/types";
-import { Button, cn } from "@/components/ui/primitives";
+import { Button, cn, Spinner } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
 import { useQuickActions } from "./QuickActions";
@@ -249,6 +249,10 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("pos.sidebar") === "collapsed"; } catch { return false; } });
   const [palette, setPalette] = useState(false);
   useEffect(() => setMobileOpen(false), [location.pathname]);
+  // Loading the settings sets the app's timezone ("today" everywhere). On a device that doesn't
+  // know it yet, wait for it so no page counts days in the device's zone.
+  const settings = useSettings();
+  const waitForZone = !hasAppTimeZone() && settings.isPending;
   useEffect(() => { try { localStorage.setItem("pos.sidebar", collapsed ? "collapsed" : "open"); } catch { /* ignore */ } }, [collapsed]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -309,7 +313,7 @@ export function AppShell() {
                 initial={{ opacity: 0, y: 10, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
                 transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
                 className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
-                {outlet}
+                {waitForZone ? <div className="grid place-items-center py-24"><Spinner /></div> : outlet}
               </motion.div>
             </AnimatePresence>
           </main>

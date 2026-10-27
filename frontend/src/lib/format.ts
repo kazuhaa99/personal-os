@@ -82,6 +82,11 @@ export function setAppTimeZone(tz: string | null): void {
   } catch { /* storage unavailable: kept for this session only */ }
 }
 
+/** Whether the app's timezone is known (stored on this device or loaded from Settings). */
+export function hasAppTimeZone(): boolean {
+  return appTimeZone !== null;
+}
+
 /** The current wall-clock time in the app's timezone, as a local Date (for date-fns). */
 export function nowInAppZone(): Date {
   const now = new Date();
