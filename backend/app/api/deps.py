@@ -1,6 +1,7 @@
 import secrets
 
 from fastapi import Cookie, Header, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -32,6 +33,18 @@ def bearer_user(db: Session, request: Request, authorization: str | None) -> int
     return None
 
 
+def _resolve_user(request: Request, authorization: str | None, session: str | None) -> int | None:
+    """The database lookups behind require_user; blocking, so they run in the threadpool."""
+    settings = get_settings()
+    with SessionLocal() as db:
+        uid = bearer_user(db, request, authorization)
+        if uid is None and not settings.auth_enabled and not settings.api_token:
+            uid = first_user_id(db)
+        elif uid is None and session:
+            uid = session_user_id(db, session)
+    return uid
+
+
 async def require_user(
     request: Request,
     authorization: str | None = Header(default=None),
@@ -41,7 +54,7 @@ async def require_user(
 
     Async on purpose: the user id is stored in a context variable, and only
     values set in the request's own task are visible to the (threadpool)
-    endpoint that runs afterwards.
+    endpoint that runs afterwards. The lookups themselves run in the threadpool.
 
     Accepted credentials: the login session cookie (web UI); a native app's
     access token as "Authorization: Bearer posat_…" (iOS / macOS shells); or —
@@ -49,14 +62,7 @@ async def require_user(
     acts as the first account (for scripts). With POS_AUTH_ENABLED=false every
     request acts as the first account (localhost-only setups).
     """
-    settings = get_settings()
-    uid: int | None = None
-    with SessionLocal() as db:
-        uid = bearer_user(db, request, authorization)
-        if uid is None and not settings.auth_enabled and not settings.api_token:
-            uid = first_user_id(db)
-        elif uid is None and session:
-            uid = session_user_id(db, session)
+    uid = await run_in_threadpool(_resolve_user, request, authorization, session)
     if uid is None:
         set_current_user(None)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Sign in required", headers={"WWW-Authenticate": "Bearer"})

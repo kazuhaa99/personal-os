@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -129,7 +130,8 @@ def export_transactions(f: transactions.TxFilter = Depends(tx_filter), db: Sessi
 @router.post("/transactions/import", response_model=ImportReport, tags=["transactions"])
 async def import_transactions(file: UploadFile = File(...), dry_run: bool = True, db: Session = Depends(get_db)):
     content = await file.read(csv_io.MAX_BYTES + 1)
-    return csv_io.import_csv(db, csv_io.decode(content), dry_run=dry_run)
+    # Parsing and saving thousands of rows is blocking work: keep it off the event loop.
+    return await run_in_threadpool(lambda: csv_io.import_csv(db, csv_io.decode(content), dry_run=dry_run))
 
 
 @router.get("/transactions/{tx_id}", response_model=TransactionOut, tags=["transactions"])
