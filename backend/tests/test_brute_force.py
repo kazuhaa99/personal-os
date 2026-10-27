@@ -29,7 +29,7 @@ def test_code_attempts_survive_concurrent_requests(db, monkeypatch):
     # Two requests that loaded the account before either counted its wrong code.
     with SessionLocal() as first, SessionLocal() as second:
         stale = [s.get(User, admin.id) for s in (first, second)]
-        for session, user in zip((first, second), stale):
+        for session, user in zip((first, second), stale, strict=True):
             with pytest.raises(svc.ValidationFailed):
                 svc.check_code(session, user, "reset", "abcdef")
 
