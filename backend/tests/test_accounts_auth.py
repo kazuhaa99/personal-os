@@ -16,8 +16,8 @@ def outbox(monkeypatch):
     monkeypatch.setattr(s, "auth_enabled", True)
     monkeypatch.setattr(s, "smtp_password", "app-password")
     monkeypatch.setattr(mail, "send", lambda to, subject, text: sent.append((to, subject, text)))
-    from app.api import auth as auth_api
-    auth_api._hits.clear()
+    from app.api import throttle
+    throttle.reset()
     return sent
 
 

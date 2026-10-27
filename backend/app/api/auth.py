@@ -1,94 +1,24 @@
 import logging
-import threading
-import time
-from collections import deque
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api import throttle
 from app.api.deps import require_user
 from app.config import get_settings
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.models import User
 from app.services import auth as svc
 from app.services import mail, native_tokens
-from app.services.i18n import use_language
+from app.services.i18n import current as current_language
+from app.services.i18n import set_language, use_language
 from app.tenancy import current_user_id
 
 log = logging.getLogger("personal_os")
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(use_language)])
-
-# Brute-force brake: at most _MAX attempts per client and action in _WINDOW seconds, and
-# _ACCOUNT_MAX failed sign-ins per account from anywhere (so rotating addresses doesn't help).
-_hits: dict[tuple[str, str], deque[float]] = {}
-_lock = threading.Lock()
-_WINDOW, _MAX, _ACCOUNT_MAX = 300, 10, 20
-_MAX_KEYS = 10_000  # memory cap: beyond it the oldest keys are forgotten
-
-
-def _client(request: Request) -> str:
-    return request.client.host if request.client else "?"
-
-
-def _forget_old_keys(now: float) -> None:
-    for key in [k for k, q in _hits.items() if not q or q[-1] < now - _WINDOW]:
-        del _hits[key]
-    for key in list(_hits)[: max(0, len(_hits) - _MAX_KEYS + 1)]:
-        del _hits[key]
-
-
-def _take(key: tuple[str, str], limit: int = _MAX) -> float:
-    """Count one attempt under key, or refuse (429) when its window is already full."""
-    now = time.time()
-    with _lock:
-        if key not in _hits and len(_hits) >= _MAX_KEYS:
-            _forget_old_keys(now)
-        q = _hits.setdefault(key, deque())
-        while q and q[0] < now - _WINDOW:
-            q.popleft()
-        if len(q) >= limit:
-            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")
-        q.append(now)
-    return now
-
-
-def _give_back(key: tuple[str, str], stamp: float) -> None:
-    with _lock:
-        q = _hits.get(key)
-        if q is not None and stamp in q:
-            q.remove(stamp)
-
-
-def _throttle(request: Request, action: str) -> None:
-    _take((action, _client(request)))
-
-
-@contextmanager
-def _failures_only(request: Request, action: str, account: str | None = None) -> Iterator[None]:
-    """Only failed attempts (Unauthorized) count. Each attempt is counted before it runs and given
-    back if it didn't fail, so a burst of parallel requests can't slip past the limit."""
-    keys = [((action, _client(request)), _MAX)]
-    if account is not None:
-        keys.append(((f"{action}:account", account.strip().lower()), _ACCOUNT_MAX))
-    taken: list[tuple[tuple[str, str], float]] = []
-    try:
-        for key, limit in keys:
-            taken.append((key, _take(key, limit)))
-        yield
-    except svc.Unauthorized:
-        raise
-    except BaseException:
-        for key, stamp in taken:
-            _give_back(key, stamp)
-        raise
-    for key, stamp in taken:
-        _give_back(key, stamp)
-
 
 def _sign_in(response: Response, db: Session, user: User) -> dict:
     s = get_settings()
@@ -167,8 +97,14 @@ def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
 
 def _checked_login(request: Request, db: Session, identifier: str, password: str) -> User:
     """Password sign-in shared by the cookie and the token endpoints (and their rate limit)."""
-    with _failures_only(request, "login", account=identifier):
+    # One limit per account whether it's named by username or email; unknown names get their own.
+    known = svc.find_user(db, identifier)
+    account = f"user:{known.id}" if known else f"name:{identifier.strip().lower()}"
+    address = throttle.client(request)
+    exempt = known is not None and throttle.trusted(known.id, address)
+    with throttle.failures_only(request, "login", account=None if exempt else account):
         user = svc.authenticate(db, identifier, password)
+    throttle.remember(user.id, address)
     if svc.needs_verification(user):
         # Password was right but the email was never confirmed: send (or reuse) a code.
         sent = svc.code_pending(user, "verify") or _send_quietly(db, user, "verify")
@@ -209,7 +145,7 @@ def issue_token(body: TokenIn, request: Request, db: Session = Depends(get_db)):
 @router.post("/token/refresh")
 def refresh_token(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
     # Only failures count: many devices behind one address refreshing normally never hit the limit.
-    with _failures_only(request, "refresh"):
+    with throttle.failures_only(request, "refresh"):
         return native_tokens.refresh(db, body.refresh_token)
 
 
@@ -226,7 +162,7 @@ def revoke_token(request: Request, db: Session = Depends(get_db)):
 def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
     if not get_settings().allow_registration:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Registration is closed")
-    _throttle(request, "register")
+    throttle.per_client(request, "register")
     user = svc.create_user(db, body.username, body.email, body.password)
     svc.send_code(db, user, "verify")
     return {"pending_verification": True, "email": user.email, "username": user.username}
@@ -234,7 +170,7 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/verify-email")
 def verify_email(body: CodeIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "verify")
+    throttle.per_client(request, "verify")
     user = svc.find_user(db, body.identifier)
     if user is None:
         raise svc.ValidationFailed("Wrong code", code="code_wrong")
@@ -247,26 +183,39 @@ def verify_email(body: CodeIn, request: Request, response: Response, db: Session
 
 
 @router.post("/resend-code", status_code=204)
-def resend_code(body: IdentifierIn, request: Request, db: Session = Depends(get_db)):
-    _throttle(request, "resend")
+def resend_code(body: IdentifierIn, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Always 204, so the response never tells whether an account exists."""
+    throttle.per_client(request, "resend")
     user = svc.find_user(db, body.identifier)
     if user is not None and svc.needs_verification(user):
-        _send_quietly(db, user, "verify")
+        _send_after_reply(background, user, "verify")
 
 
 @router.post("/password/forgot", status_code=204)
-def forgot_password(body: IdentifierIn, request: Request, db: Session = Depends(get_db)):
+def forgot_password(body: IdentifierIn, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Always 204, so the response never tells whether an account exists."""
-    _throttle(request, "forgot")
+    throttle.per_client(request, "forgot")
     user = svc.find_user(db, body.identifier)
     if user is not None and user.email and user.email_verified_at:
-        _send_quietly(db, user, "reset")
+        _send_after_reply(background, user, "reset")
+
+
+def _send_after_reply(background: BackgroundTasks, user: User, purpose: str) -> None:
+    """Send once the reply is out, so an existing account answers as fast as an unknown one."""
+    background.add_task(_send_in_background, user.id, purpose, current_language())
+
+
+def _send_in_background(user_id: int, purpose: str, language: str) -> None:
+    set_language(language)
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        if user is not None:
+            _send_quietly(db, user, purpose)
 
 
 @router.post("/password/reset")
 def reset_password(body: ResetIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "reset")
+    throttle.per_client(request, "reset")
     user = svc.find_user(db, body.identifier)
     if user is None:
         raise svc.ValidationFailed("Wrong code", code="code_wrong")
@@ -288,7 +237,7 @@ def logout(response: Response, session: str | None = Cookie(default=None, alias=
 
 @router.post("/password/change", dependencies=[Depends(require_user)])
 def change_password(body: ChangePasswordIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "change-password")
+    throttle.per_client(request, "change-password")
     user = db.get(User, current_user_id())
     if not svc.verify_password(body.current_password, user.password_hash):
         raise svc.ValidationFailed("Current password is wrong", code="password_wrong")
@@ -301,7 +250,7 @@ def change_password(body: ChangePasswordIn, request: Request, response: Response
 
 @router.post("/email/change", dependencies=[Depends(require_user)])
 def change_email(body: ChangeEmailIn, request: Request, db: Session = Depends(get_db)):
-    _throttle(request, "change-email")
+    throttle.per_client(request, "change-email")
     user = db.get(User, current_user_id())
     if not svc.verify_password(body.password, user.password_hash):
         raise svc.ValidationFailed("Current password is wrong", code="password_wrong")
@@ -339,7 +288,7 @@ def confirm_email_change(body: ConfirmIn, db: Session = Depends(get_db)):
 @router.delete("/me", status_code=204, dependencies=[Depends(require_user)])
 def delete_account(body: DeleteAccountIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Permanently delete the signed-in account and all of its data."""
-    _throttle(request, "delete-account")
+    throttle.per_client(request, "delete-account")
     user = db.get(User, current_user_id())
     svc.delete_account(db, user, body.password)
     response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")
