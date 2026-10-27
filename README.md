@@ -119,6 +119,43 @@ only) caches the static app — hashed bundles, icons, wallpapers — but **neve
 all other data always come from the network. Without a connection, pages show an offline notice. Installing needs
 `localhost` or HTTPS.
 
+### iOS and macOS apps
+
+The same React app also ships as an iPhone app (Capacitor, `frontend/ios/`) and a Mac app for Apple Silicon (Tauri,
+`frontend/src-tauri/`). What differs per platform lives in `frontend/src/platform/`; the web build is unaffected.
+
+- **Sign-in:** the apps don't use the web's cookie. They get an access + refresh token pair (`POST /api/auth/token`);
+  the refresh token is kept in the Keychain, the access token only in memory. Sign-out revokes the session on the
+  server. The API needs migration `0004` and allows the apps' origins (`POS_NATIVE_ORIGINS`, default
+  `capacitor://localhost,tauri://localhost`).
+- **Offline:** the apps show the last loaded data read-only, with a "no connection" banner; nothing is written offline.
+- **App lock:** optional Face ID / Touch ID (Settings → App lock).
+- **Mac:** remembered window size, app menu, <kbd>⌘N</kbd> new transaction, <kbd>⌘F</kbd> search, <kbd>⌘,</kbd> settings.
+
+Requirements (macOS): Node 20+, [Rust](https://rustup.rs) for the Mac app, Xcode for the iPhone app. The apps call the
+API at an absolute HTTPS address given at build time in `VITE_API_BASE` (the build refuses anything else, except
+`http://localhost` / `127.0.0.1` for development).
+
+```bash
+cd frontend
+npm run mac:dev                                   # Mac app against the local API (via the Vite dev server)
+VITE_API_BASE=https://host/api npm run mac:build  # → src-tauri/target/release/bundle/macos/Personal OS.app
+VITE_API_BASE=https://host/api npm run mac:dmg    # the same plus a .dmg (run in your own Terminal: it drives Finder)
+npm run ios:dev                                   # iPhone simulator against http://127.0.0.1:8000/api
+VITE_API_BASE=https://host/api npm run ios:build  # build, sync and open the Xcode project to run on a device
+npm run native:icons                              # regenerate all icons and splash screens from public/icons/icon-1024.png
+```
+
+**Running on your own iPhone without a paid Apple Developer account:** in Xcode open *Signing & Capabilities*, pick
+your Apple ID as the team (a free "Personal Team") and press Run with the phone connected. On the phone, enable
+*Settings → Privacy & Security → Developer Mode* and trust your certificate under *Settings → General → VPN & Device
+Management*. Such a build **expires after 7 days** and has to be run again from Xcode; a free account also allows only
+a few apps at a time. TestFlight, the App Store and longer-lived builds need the paid Apple Developer Program.
+
+**The Mac app** is signed ad hoc: the first time, open it with right-click → *Open*. After each rebuild macOS may ask
+once more whether the app may use its Keychain item. Sharing it with other Macs needs a Developer ID signature and
+notarisation (paid account).
+
 ### Try it with demo data
 
 Settings → **Load demo data**. Every demo record is flagged `is_demo`, demo accounts are

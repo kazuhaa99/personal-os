@@ -12,3 +12,9 @@ backend/.env
 backend/.secret_key
 frontend/e2e/.out/
 frontend/playwright-report/
+# native app builds (npm run build:mac / build:ios)
+frontend/dist-mac/
+frontend/dist-ios/
+# personal Claude Code files: local settings and session summaries
+.claude/settings.local.json
+*-session.tmp

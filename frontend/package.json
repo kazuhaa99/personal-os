@@ -10,7 +10,16 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "dev:mac": "VITE_PLATFORM=macos vite",
+    "build:mac": "tsc -b && VITE_PLATFORM=macos vite build --outDir dist-mac --emptyOutDir",
+    "build:ios": "tsc -b && VITE_PLATFORM=ios vite build --outDir dist-ios --emptyOutDir",
+    "mac:dev": "tauri dev",
+    "mac:build": "tauri build --bundles app",
+    "ios:dev": "VITE_API_BASE=${VITE_API_BASE:-http://127.0.0.1:8000/api} npm run build:ios && cap sync ios && cap run ios",
+    "ios:build": "npm run build:ios && cap sync ios && cap open ios",
+    "native:icons": "tauri icon public/icons/icon-1024.png -o src-tauri/icons && rm -rf src-tauri/icons/android src-tauri/icons/ios && capacitor-assets generate --ios --assetPath resources",
+    "mac:dmg": "tauri build --bundles app,dmg"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
@@ -18,6 +27,7 @@
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.3",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
     "@capacitor/keyboard": "^8.0.6",
     "@capacitor/status-bar": "^8.0.4",
     "@fontsource-variable/fraunces": "^5.3.0",
@@ -43,7 +53,10 @@
     "tailwind-merge": "2.5.5"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
     "@playwright/test": "1.63.0",
+    "@tauri-apps/cli": "^2.12.4",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
     "@testing-library/user-event": "14.5.2",

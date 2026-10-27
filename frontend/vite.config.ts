@@ -12,6 +12,10 @@ const apiBase = process.env.VITE_API_BASE;
 if (apiBase && !/^(https:\/\/[^/\s]+|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)(\/\S*)?$/.test(apiBase)) {
   throw new Error(`VITE_API_BASE must be an https:// URL (or http://localhost), got "${apiBase}"`);
 }
+// A native production build without it would call capacitor://localhost/api or tauri://localhost/api.
+if (process.env.VITE_PLATFORM && process.argv.includes("build") && !apiBase) {
+  throw new Error("Native builds need VITE_API_BASE, e.g. VITE_API_BASE=https://pos.example.com/api npm run mac:build");
+}
 
 export default defineConfig({
   base,
