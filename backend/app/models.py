@@ -238,7 +238,7 @@ class Transaction(Owned, TimestampMixin, Base):
         UniqueConstraint(
             "recurring_rule_id", "recurring_occurrence_date", name="uq_transactions_recurring_occurrence"
         ),
-        Index("ix_transactions_date", "date"),
+        Index("ix_transactions_user_date", "user_id", "date"),  # the transaction list: one owner, by date
         Index("ix_transactions_account_date", "account_id", "date"),
         Index("ix_transactions_to_account", "to_account_id"),
         Index("ix_transactions_category_date", "category_id", "date"),
@@ -310,8 +310,8 @@ class RecurringRule(Owned, TimestampMixin, Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     next_due_date: Mapped[date | None] = mapped_column(Date)  # NULL once the schedule has ended
     end_date: Mapped[date | None] = mapped_column(Date)
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), index=True, nullable=False)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"), index=True, nullable=False)
     payee: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -349,7 +349,7 @@ class InstallmentPlan(Owned, TimestampMixin, Base):
     next_payment_date: Mapped[date | None] = mapped_column(Date)
     final_payment_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(10), default="active", nullable=False)
-    default_account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
+    default_account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), index=True)
     notes: Mapped[str | None] = mapped_column(Text)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
@@ -464,7 +464,7 @@ class Task(Owned, TimestampMixin, Base):
         # A recurring series can only have one instance per due date, so completing
         # the same instance twice can never spawn duplicate follow-ups.
         UniqueConstraint("series_id", "due_date", name="uq_tasks_series_due"),
-        Index("ix_tasks_status_due", "status", "due_date"),
+        Index("ix_tasks_user_status_due", "user_id", "status", "due_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
