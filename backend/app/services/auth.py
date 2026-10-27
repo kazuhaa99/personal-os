@@ -289,6 +289,8 @@ def send_code(db: Session, user: User, purpose: str) -> None:
 
 
 def check_code(db: Session, user: User, purpose: str, code: str) -> None:
+    # Lock and reload the account: parallel guesses must each see the others' wrong attempts.
+    db.refresh(user, with_for_update=True)
     target = user.pending_email if purpose == "change_email" else user.email
     now = datetime.now(timezone.utc)
     if user.code_purpose != purpose or not user.code_hash or not user.code_expires_at or user.code_expires_at < now:

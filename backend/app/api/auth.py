@@ -1,5 +1,8 @@
+import threading
 import time
 from collections import deque
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
@@ -17,24 +20,71 @@ from app.tenancy import current_user_id
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(use_language)])
 
-# Crude brute-force brake per client and action: at most 10 attempts per 5 minutes.
+# Brute-force brake: at most _MAX attempts per client and action in _WINDOW seconds, and
+# _ACCOUNT_MAX failed sign-ins per account from anywhere (so rotating addresses doesn't help).
 _hits: dict[tuple[str, str], deque[float]] = {}
-_WINDOW, _MAX = 300, 10
+_lock = threading.Lock()
+_WINDOW, _MAX, _ACCOUNT_MAX = 300, 10, 20
+_MAX_KEYS = 10_000  # memory cap: beyond it the oldest keys are forgotten
 
 
-def _throttle(request: Request, action: str, count: bool = True) -> None:
-    client = request.client.host if request.client else "?"
-    q = _hits.setdefault((client, action), deque())
-    while q and q[0] < time.time() - _WINDOW:
-        q.popleft()
-    if len(q) >= _MAX:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")
-    if count:
-        q.append(time.time())
+def _client(request: Request) -> str:
+    return request.client.host if request.client else "?"
 
 
-def _clear(request: Request, action: str) -> None:
-    _hits.pop((request.client.host if request.client else "?", action), None)
+def _forget_old_keys(now: float) -> None:
+    for key in [k for k, q in _hits.items() if not q or q[-1] < now - _WINDOW]:
+        del _hits[key]
+    for key in list(_hits)[: max(0, len(_hits) - _MAX_KEYS + 1)]:
+        del _hits[key]
+
+
+def _take(key: tuple[str, str], limit: int = _MAX) -> float:
+    """Count one attempt under key, or refuse (429) when its window is already full."""
+    now = time.time()
+    with _lock:
+        if key not in _hits and len(_hits) >= _MAX_KEYS:
+            _forget_old_keys(now)
+        q = _hits.setdefault(key, deque())
+        while q and q[0] < now - _WINDOW:
+            q.popleft()
+        if len(q) >= limit:
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")
+        q.append(now)
+    return now
+
+
+def _give_back(key: tuple[str, str], stamp: float) -> None:
+    with _lock:
+        q = _hits.get(key)
+        if q is not None and stamp in q:
+            q.remove(stamp)
+
+
+def _throttle(request: Request, action: str) -> None:
+    _take((action, _client(request)))
+
+
+@contextmanager
+def _failures_only(request: Request, action: str, account: str | None = None) -> Iterator[None]:
+    """Only failed attempts (Unauthorized) count. Each attempt is counted before it runs and given
+    back if it didn't fail, so a burst of parallel requests can't slip past the limit."""
+    keys = [((action, _client(request)), _MAX)]
+    if account is not None:
+        keys.append(((f"{action}:account", account.strip().lower()), _ACCOUNT_MAX))
+    taken: list[tuple[tuple[str, str], float]] = []
+    try:
+        for key, limit in keys:
+            taken.append((key, _take(key, limit)))
+        yield
+    except svc.Unauthorized:
+        raise
+    except BaseException:
+        for key, stamp in taken:
+            _give_back(key, stamp)
+        raise
+    for key, stamp in taken:
+        _give_back(key, stamp)
 
 
 def _sign_in(response: Response, db: Session, user: User) -> dict:
@@ -114,13 +164,8 @@ def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
 
 def _checked_login(request: Request, db: Session, identifier: str, password: str) -> User:
     """Password sign-in shared by the cookie and the token endpoints (and their rate limit)."""
-    _throttle(request, "login", count=False)
-    try:
+    with _failures_only(request, "login", account=identifier):
         user = svc.authenticate(db, identifier, password)
-    except svc.Unauthorized:
-        _throttle(request, "login")
-        raise
-    _clear(request, "login")
     if svc.needs_verification(user):
         # Password was right but the email was never confirmed: send (or reuse) a code.
         if not svc.code_pending(user, "verify"):
@@ -150,12 +195,8 @@ def issue_token(body: TokenIn, request: Request, db: Session = Depends(get_db)):
 @router.post("/token/refresh")
 def refresh_token(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
     # Only failures count: many devices behind one address refreshing normally never hit the limit.
-    _throttle(request, "refresh", count=False)
-    try:
+    with _failures_only(request, "refresh"):
         return native_tokens.refresh(db, body.refresh_token)
-    except svc.Unauthorized:
-        _throttle(request, "refresh")
-        raise
 
 
 @router.post("/token/revoke", status_code=204, dependencies=[Depends(require_user)])
