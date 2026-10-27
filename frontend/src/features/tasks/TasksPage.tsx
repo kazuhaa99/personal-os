@@ -31,7 +31,7 @@ const EMPTY: Record<View, [string, string]> = {
 /** Inline quick add, styled as the first row of the list. */
 function QuickAdd({ dueToday }: { dueToday: boolean }) {
   const [title, setTitle] = useState("");
-  const add = useAction((title: string) => api.post("/tasks", { title, due_date: dueToday ? todayISO() : null }), {
+  const add = useAction((title: string) => api.post("/tasks", { title, due_date: dueToday ? todayISO() : null }), { refresh: ["tasks"],
     success: dueToday ? t("Added for today") : t("Task added"), onSuccess: () => setTitle(""),
   });
   return (
@@ -92,7 +92,7 @@ export function TasksPage() {
   const { data: upcoming = [] } = useQuery({ queryKey: ["tasks", "upcoming", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "upcoming" }) });
   const { data: all } = useQuery({ queryKey: ["tasks", "all", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "all" }) });
   const tabCounts = all ? viewCounts(all, today, { priority, category }) : undefined;
-  const clearDone = useAction(async (ids: number[]) => { for (const id of ids) await api.del(`/tasks/${id}`); }, { success: t("Completed tasks cleared") });
+  const clearDone = useAction(async (ids: number[]) => { for (const id of ids) await api.del(`/tasks/${id}`); }, { refresh: ["tasks"], success: t("Completed tasks cleared") });
 
   const set = (patch: Record<string, string>) => {
     const n = new URLSearchParams(params);

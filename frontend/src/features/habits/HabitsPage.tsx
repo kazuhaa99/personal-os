@@ -32,7 +32,7 @@ function HabitForm({ open, onOpenChange, editing }: { open: boolean; onOpenChang
     setName(editing?.name ?? ""); setDescription(editing?.description ?? ""); setSchedule(editing?.schedule ?? "daily");
     setWeekdays(editing?.weekdays ?? [0, 1, 2, 3, 4]); setColor(editing?.color ?? COLORS[0]); setError(null);
   }, [open, editing]);
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/habits/${editing.id}`, body) : api.post("/habits", body)), { success: t("Habit saved"), onSuccess: () => onOpenChange(false) });
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/habits/${editing.id}`, body) : api.post("/habits", body)), { refresh: ["habits"], success: t("Habit saved"), onSuccess: () => onOpenChange(false) });
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={editing ? t("Edit habit") : t("New habit")}
       onSubmit={() => {
@@ -95,9 +95,9 @@ function Heatmap({ habit, today }: { habit: Habit; today: string }) {
 
 function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEdit: () => void }) {
   const confirm = useConfirm();
-  const toggle = useAction(({ date, done }: { date: string; done: boolean }) => api.put(`/habits/${habit.id}/completions`, { date, done }), { haptic: "light" });
-  const archive = useAction(() => api.patch(`/habits/${habit.id}`, { is_archived: !habit.is_archived }), { success: habit.is_archived ? t("Habit restored") : t("Habit archived") });
-  const del = useAction(() => api.del(`/habits/${habit.id}`), { success: t("Habit deleted") });
+  const toggle = useAction(({ date, done }: { date: string; done: boolean }) => api.put(`/habits/${habit.id}/completions`, { date, done }), { refresh: ["habits"], haptic: "light" });
+  const archive = useAction(() => api.patch(`/habits/${habit.id}`, { is_archived: !habit.is_archived }), { refresh: ["habits"], success: habit.is_archived ? t("Habit restored") : t("Habit archived") });
+  const del = useAction(() => api.del(`/habits/${habit.id}`), { refresh: ["habits"], success: t("Habit deleted") });
   const doneSet = new Set(habit.completions);
   const last7 = Array.from({ length: 7 }, (_, i) => subDays(parseISO(today), 6 - i));
 

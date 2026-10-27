@@ -42,7 +42,7 @@ export function TaskForm({ open, onOpenChange, editing, draft }: { open: boolean
 
   const save = useAction(
     (body: Record<string, unknown>) => (editing ? api.patch(`/tasks/${editing.id}`, body) : api.post("/tasks", body)),
-    { success: editing ? t("Task updated") : t("Task added"), onSuccess: () => onOpenChange(false) },
+    { refresh: ["tasks"], success: editing ? t("Task updated") : t("Task added"), onSuccess: () => onOpenChange(false) },
   );
 
   function submit() {

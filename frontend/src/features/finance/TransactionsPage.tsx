@@ -67,7 +67,7 @@ export function TransactionsPage() {
     queryFn: () => api.get<TxPage>("/transactions", { ...filter, limit: PAGE, offset }),
   });
 
-  const del = useAction((id: number) => api.del(`/transactions/${id}`), { success: t("Transaction deleted") });
+  const del = useAction((id: number) => api.del(`/transactions/${id}`), { refresh: ["finance"], success: t("Transaction deleted") });
 
   async function onDelete(tx: Transaction) {
     if (await confirm({ title: t("Delete transaction?"), body: t("{amount} · {what} on {date}. Account balances will be recalculated.", { amount: formatMoney(tx.amount, tx.currency), what: tx.description || (tx.category ? t(tx.category.name) : t("transfer")), date: fmtDate(tx.date) }) })) del.mutate(tx.id);

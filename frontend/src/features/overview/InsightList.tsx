@@ -13,7 +13,7 @@ const ICONS = {
 };
 
 export function InsightList({ items, limit }: { items: Insight[]; limit?: number }) {
-  const dismiss = useAction((key: string) => api.post(`/insights/${encodeURIComponent(key)}/dismiss`), { success: t("Dismissed") });
+  const dismiss = useAction((key: string) => api.post(`/insights/${encodeURIComponent(key)}/dismiss`), { refresh: ["insights"], success: t("Dismissed") });
   if (!items.length) {
     return <EmptyState className="py-6" title={t("Nothing needs attention")} body={t("Alerts appear here when a budget runs over, a payment is due, or a task or goal slips.")} />;
   }

@@ -22,7 +22,7 @@ function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolea
     setLastOpen(open);
     if (open) { setCategoryId(line ? String(line.category_id) : ""); setAmount(line?.limit ?? ""); setError(null); }
   }
-  const save = useAction((body: Record<string, unknown>) => api.put("/budgets", body), { success: t("Budget saved"), onSuccess: () => onOpenChange(false) });
+  const save = useAction((body: Record<string, unknown>) => api.put("/budgets", body), { refresh: ["finance"], success: t("Budget saved"), onSuccess: () => onOpenChange(false) });
   const options = categories.filter((c) => c.kind === "expense" && !c.is_archived && (!usedIds.includes(c.id) || c.id === line?.category_id));
 
   function submit() {
@@ -53,7 +53,7 @@ export function BudgetsPage() {
   const confirm = useConfirm();
   const [form, setForm] = useState<{ open: boolean; line: BudgetLine | null }>({ open: false, line: null });
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["budgets", month], queryFn: () => api.get<BudgetMonth>("/budgets", { month }) });
-  const disable = useAction((line: BudgetLine) => api.put("/budgets", { category_id: line.category_id, month, amount: line.limit, is_active: false }), { success: t("Budget disabled from this month") });
+  const disable = useAction((line: BudgetLine) => api.put("/budgets", { category_id: line.category_id, month, amount: line.limit, is_active: false }), { refresh: ["finance"], success: t("Budget disabled from this month") });
   const shift = (n: number) => setParams({ month: format(addMonths(parseISO(`${month}-01`), n), "yyyy-MM") });
 
   async function onDisable(line: BudgetLine) {

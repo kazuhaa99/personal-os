@@ -20,7 +20,7 @@ const RECURRENCE_NAME: Record<Task["recurrence"], string> = {
 export function TaskCheck({ task }: { task: Task }) {
   const toggle = useAction(
     () => api.post<{ next_instance: Task | null }>(`/tasks/${task.id}/${task.status === "done" ? "reopen" : "complete"}`),
-    { success: (r: unknown) => {
+    { refresh: ["tasks"], success: (r: unknown) => {
       const res = r as { next_instance?: Task | null };
       return task.status === "done" ? t("Task reopened") : res?.next_instance ? t("Done · next on {date}", { date: fmtDate(res.next_instance.due_date, t("d MMM")) }) : t("Done");
     } },

@@ -70,7 +70,7 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
 
   const save = useAction(
     (body: Record<string, unknown>) => (editing ? api.patch(`/transactions/${editing.id}`, body) : api.post("/transactions", body)),
-    { success: editing ? t("Transaction updated") : t("Transaction added"), onSuccess: () => onOpenChange(false), haptic: "success" },
+    { refresh: ["finance"], success: editing ? t("Transaction updated") : t("Transaction added"), onSuccess: () => onOpenChange(false), haptic: "success" },
   );
 
   function submit() {

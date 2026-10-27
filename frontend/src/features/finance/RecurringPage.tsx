@@ -37,7 +37,7 @@ function RuleForm({ open, onOpenChange, editing }: { open: boolean; onOpenChange
     setPayee(editing?.payee ?? "");
   }, [open, editing, accounts]);
 
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/recurring/${editing.id}`, body) : api.post("/recurring", body)), {
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/recurring/${editing.id}`, body) : api.post("/recurring", body)), { refresh: ["finance"],
     success: editing ? t("Recurring payment updated") : t("Recurring payment added"), onSuccess: () => onOpenChange(false),
   });
 
@@ -97,7 +97,7 @@ function ConfirmDialog({ item, onClose }: { item: ExpectedPayment | null; onClos
   const [date, setDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { if (item) { setAmount(item.amount); setDate(item.due_date > todayISO() ? todayISO() : item.due_date); setError(null); } }, [item]);
-  const confirm = useAction((body: Record<string, unknown>) => api.post(`/recurring/${item!.source_id}/confirm`, body), { success: t("Recorded as a transaction"), onSuccess: onClose });
+  const confirm = useAction((body: Record<string, unknown>) => api.post(`/recurring/${item!.source_id}/confirm`, body), { refresh: ["finance"], success: t("Recorded as a transaction"), onSuccess: onClose });
   return (
     <Modal open={!!item} onOpenChange={(o) => !o && onClose()} title={t("Record “{name}”", { name: item?.name ?? "" })}
       description={item ? t("Scheduled for {date}. Recording creates one real transaction; recording the same occurrence twice is blocked.", { date: fmtDate(item.due_date) }) : undefined}
@@ -121,9 +121,9 @@ export function RecurringPage() {
   const confirmDel = useConfirm();
   const [form, setForm] = useState<{ open: boolean; editing: RecurringRule | null }>({ open: false, editing: null });
   const [confirming, setConfirming] = useState<ExpectedPayment | null>(null);
-  const toggle = useAction((r: RecurringRule) => api.patch(`/recurring/${r.id}`, { is_active: !r.is_active }), { success: t("Updated") });
-  const skip = useAction((p: ExpectedPayment) => api.post(`/recurring/${p.source_id}/skip`, { occurrence_date: p.due_date }), { success: t("Occurrence skipped") });
-  const remove = useAction((id: number) => api.del(`/recurring/${id}`), { success: t("Recurring payment deleted") });
+  const toggle = useAction((r: RecurringRule) => api.patch(`/recurring/${r.id}`, { is_active: !r.is_active }), { refresh: ["finance"], success: t("Updated") });
+  const skip = useAction((p: ExpectedPayment) => api.post(`/recurring/${p.source_id}/skip`, { occurrence_date: p.due_date }), { refresh: ["finance"], success: t("Occurrence skipped") });
+  const remove = useAction((id: number) => api.del(`/recurring/${id}`), { refresh: ["finance"], success: t("Recurring payment deleted") });
   const today = todayISO();
   const recurringExpected = expected.filter((e) => e.kind === "recurring");
   const rulesById = Object.fromEntries((rules ?? []).map((r) => [r.id, r]));

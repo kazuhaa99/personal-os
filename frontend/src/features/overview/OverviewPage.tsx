@@ -39,7 +39,7 @@ function Kpi({ label, value, sub, to, big, tone, children }: { label: string; va
 
 function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
   const days = Array.from({ length: 7 }, (_, i) => isoFormat(subDays(parseISO(today), 6 - i), "yyyy-MM-dd"));
-  const toggle = useAction(({ id, done }: { id: number; done: boolean }) => api.put(`/habits/${id}/completions`, { date: today, done }));
+  const toggle = useAction(({ id, done }: { id: number; done: boolean }) => api.put(`/habits/${id}/completions`, { date: today, done }), { refresh: ["habits"] });
   return (
     <table className="w-full border-collapse text-[13.5px]">
       <thead>

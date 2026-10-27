@@ -36,7 +36,7 @@ function GoalForm({ open, onOpenChange, editing }: { open: boolean; onOpenChange
       current_value: editing?.current_value ?? "0", unit: editing?.unit ?? "", milestones: "",
     });
   }, [open, editing]);
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/goals/${editing.id}`, body) : api.post("/goals", body)), {
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/goals/${editing.id}`, body) : api.post("/goals", body)), { refresh: ["goals"],
     success: editing ? t("Goal updated") : t("Goal created"), onSuccess: () => onOpenChange(false),
   });
 
@@ -95,7 +95,7 @@ function ProjectForm({ open, onOpenChange, goalId, editing }: { open: boolean; o
   const [status, setStatus] = useState<Project["status"]>("active");
   const [target, setTarget] = useState("");
   useEffect(() => { if (open) { setTitle(editing?.title ?? ""); setStatus(editing?.status ?? "active"); setTarget(editing?.target_date ?? ""); } }, [open, editing]);
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/projects/${editing.id}`, body) : api.post("/projects", body)), { success: t("Project saved"), onSuccess: () => onOpenChange(false) });
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/projects/${editing.id}`, body) : api.post("/projects", body)), { refresh: ["goals"], success: t("Project saved"), onSuccess: () => onOpenChange(false) });
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={editing ? t("Edit project") : t("New project")}
       onSubmit={() => title.trim() && save.mutate({ title: title.trim(), status, target_date: target || null, ...(editing ? {} : { goal_id: goalId }) })}
@@ -120,12 +120,12 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
 
   const { data: tasks = [] } = useQuery({ queryKey: ["tasks", "goal", goal.id], queryFn: () => api.get<Task[]>("/tasks", { goal_id: goal.id }) });
   const { data: projects = [] } = useQuery({ queryKey: ["projects", goal.id], queryFn: () => api.get<Project[]>("/projects", { goal_id: goal.id }) });
-  const patch = useAction((body: Record<string, unknown>) => api.patch(`/goals/${goal.id}`, body), { success: t("Goal updated") });
-  const addMs = useAction((title: string) => api.post(`/goals/${goal.id}/milestones`, { title }), { onSuccess: () => setMilestone("") });
-  const toggleMs = useAction(({ id, completed }: { id: number; completed: boolean }) => api.patch(`/goals/${goal.id}/milestones/${id}`, { completed }));
-  const delMs = useAction((id: number) => api.del(`/goals/${goal.id}/milestones/${id}`));
-  const del = useAction(() => api.del(`/goals/${goal.id}`), { success: t("Goal deleted") });
-  const delProject = useAction((id: number) => api.del(`/projects/${id}`), { success: t("Project deleted") });
+  const patch = useAction((body: Record<string, unknown>) => api.patch(`/goals/${goal.id}`, body), { refresh: ["goals"], success: t("Goal updated") });
+  const addMs = useAction((title: string) => api.post(`/goals/${goal.id}/milestones`, { title }), { refresh: ["goals"], onSuccess: () => setMilestone("") });
+  const toggleMs = useAction(({ id, completed }: { id: number; completed: boolean }) => api.patch(`/goals/${goal.id}/milestones/${id}`, { completed }), { refresh: ["goals"] });
+  const delMs = useAction((id: number) => api.del(`/goals/${goal.id}/milestones/${id}`), { refresh: ["goals"] });
+  const del = useAction(() => api.del(`/goals/${goal.id}`), { refresh: ["goals"], success: t("Goal deleted") });
+  const delProject = useAction((id: number) => api.del(`/projects/${id}`), { refresh: ["goals"], success: t("Project deleted") });
   const today = todayISO();
 
   return (
