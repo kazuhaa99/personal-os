@@ -2,6 +2,8 @@ import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { ArrowLeft, ArrowRight, AtSign, Eye, EyeOff, KeyRound, Lock, Mail, User } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, errorMessage } from "@/lib/api";
+import { signIn } from "@/lib/nativeSession";
+import { IS_NATIVE } from "@/platform";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import type { AuthUser } from "@/lib/types";
@@ -14,6 +16,16 @@ type View =
   | { name: "verify"; identifier: string; email: string }
   | { name: "forgot" }
   | { name: "reset"; identifier: string };
+
+/** Web: the session cookie. Native apps: bearer tokens kept in the keychain (lib/nativeSession). */
+async function passwordSignIn(identifier: string, password: string): Promise<AuthUser> {
+  if (IS_NATIVE) return signIn(identifier, password);
+  return (await api.post<{ user: AuthUser }>("/auth/login", { identifier, password })).user;
+}
+
+/** Confirming an email or resetting a password signs the web in by cookie; native apps get their tokens too. */
+const afterCodeSignIn = (user: AuthUser, identifier: string, password: string): Promise<AuthUser> =>
+  IS_NATIVE ? signIn(identifier, password) : Promise.resolve(user);
 
 /** Server error codes → translated messages (fallback: the server's English message). */
 function explain(err: unknown): string {
@@ -186,8 +198,7 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     if (!identifier.trim() || !password) return fail(new Error(t("Enter your username or email and password")));
     run(async () => {
       try {
-        const r = await api.post<{ user: AuthUser }>("/auth/login", { identifier: identifier.trim(), password });
-        onSignedIn(r.user);
+        onSignedIn(await passwordSignIn(identifier.trim(), password));
       } catch (err) {
         if (err instanceof ApiError && err.code === "email_unverified") {
           const addr = (err.details as { email?: string } | undefined)?.email ?? "";
@@ -215,7 +226,7 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     run(async () => {
       try {
         const r = await api.post<{ user: AuthUser }>("/auth/verify-email", { identifier: view.identifier, code: value });
-        onSignedIn(r.user);
+        onSignedIn(await afterCodeSignIn(r.user, view.identifier, password));
       } catch (err) { setCode(""); throw err; }
     });
   };
@@ -244,7 +255,7 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     if (password.length < 8) return fail(new Error(t("Password must be at least 8 characters")));
     run(async () => {
       const r = await api.post<{ user: AuthUser }>("/auth/password/reset", { identifier: view.identifier, code, password });
-      onSignedIn(r.user);
+      onSignedIn(await afterCodeSignIn(r.user, view.identifier, password));
     });
   };
 

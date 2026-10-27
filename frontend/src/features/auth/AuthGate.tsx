@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/api";
+import { signOut } from "@/lib/nativeSession";
+import { IS_NATIVE } from "@/platform";
 import { t } from "@/lib/i18n";
 import type { AuthMe, AuthUser } from "@/lib/types";
 import { Spinner } from "@/components/ui/primitives";
@@ -34,7 +36,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }), [qc]);
 
   const logout = useCallback(async () => {
-    await api.post("/auth/logout").catch(() => undefined);
+    if (IS_NATIVE) await signOut();
+    else await api.post("/auth/logout").catch(() => undefined);
     // Flip the session first and keep the auth query: qc.clear() would orphan this gate's
     // observer, so it kept rendering the app. Then drop everything else (private data).
     const prev = qc.getQueryData<AuthState>(ME_KEY);
