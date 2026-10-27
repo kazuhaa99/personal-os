@@ -117,6 +117,13 @@ body {
   [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(5.5rem + var(--sab)) !important; }
 }
 
+/* Native apps: the interface isn't selectable text (no selection handles or callouts when tapping
+   buttons, the tab bar or cards); fields and anything marked .selectable still are. */
+:root.native { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:root.native :is(input, textarea, [contenteditable="true"], .selectable) { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* macOS app: the window's traffic lights sit over the top-left of the header (overlay title bar). */
+:root.native-macos .app-header { padding-left: 5.5rem; }
+
 /* iOS zooms the page when a focused field's text is under 16px; keep phones at 16px. */
 @media (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }

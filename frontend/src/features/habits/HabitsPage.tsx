@@ -95,7 +95,7 @@ function Heatmap({ habit, today }: { habit: Habit; today: string }) {
 
 function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEdit: () => void }) {
   const confirm = useConfirm();
-  const toggle = useAction(({ date, done }: { date: string; done: boolean }) => api.put(`/habits/${habit.id}/completions`, { date, done }));
+  const toggle = useAction(({ date, done }: { date: string; done: boolean }) => api.put(`/habits/${habit.id}/completions`, { date, done }), { haptic: "light" });
   const archive = useAction(() => api.patch(`/habits/${habit.id}`, { is_archived: !habit.is_archived }), { success: habit.is_archived ? t("Habit restored") : t("Habit archived") });
   const del = useAction(() => api.del(`/habits/${habit.id}`), { success: t("Habit deleted") });
   const doneSet = new Set(habit.completions);

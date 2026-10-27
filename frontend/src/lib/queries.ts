@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, errorMessage } from "./api";
+import { haptic } from "@/platform/native";
 import type { Account, Category, Settings } from "./types";
 
 export function useAccounts() {
@@ -20,11 +21,12 @@ export function useSettings() {
  * (a transaction changes balances, budgets, analytics and the dashboard), so a
  * successful write simply refreshes all active queries — cheap for one user.
  */
-export function useAction<TVars, TResult = unknown>(fn: (vars: TVars) => Promise<TResult>, opts: { success?: string | ((r: TResult) => string); onSuccess?: (r: TResult) => void } = {}) {
+export function useAction<TVars, TResult = unknown>(fn: (vars: TVars) => Promise<TResult>, opts: { success?: string | ((r: TResult) => string); onSuccess?: (r: TResult) => void; haptic?: "light" | "success" } = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
     onSuccess: (result) => {
+      if (opts.haptic) void haptic(opts.haptic); // iPhone only; a no-op elsewhere
       qc.invalidateQueries();
       const msg = typeof opts.success === "function" ? opts.success(result) : opts.success;
       if (msg) toast.success(msg);

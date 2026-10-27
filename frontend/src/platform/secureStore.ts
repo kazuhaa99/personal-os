@@ -18,14 +18,16 @@ export function useSecureStoreForTests(store: SecureStore | null): void {
 }
 
 async function iosStore(): Promise<SecureStore> {
-  const { SecureStorage } = await import("@aparajita/capacitor-secure-storage");
+  const { KeychainAccess, SecureStorage } = await import("@aparajita/capacitor-secure-storage");
+  // Never synced to iCloud, never restored onto another device, readable only while unlocked.
+  const sync = false;
   return {
     get: async (key) => {
-      const v = await SecureStorage.get(key, false);
+      const v = await SecureStorage.get(key, false, sync);
       return typeof v === "string" ? v : null;
     },
-    set: (key, value) => SecureStorage.set(key, value, false),
-    remove: async (key) => { await SecureStorage.remove(key); },
+    set: (key, value) => SecureStorage.set(key, value, false, sync, KeychainAccess.whenUnlockedThisDeviceOnly),
+    remove: async (key) => { await SecureStorage.remove(key, sync); },
   };
 }
 

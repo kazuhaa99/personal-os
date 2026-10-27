@@ -18,6 +18,7 @@ import { Button, cn } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
 import { useQuickActions } from "./QuickActions";
+import { useMacShortcuts } from "@/platform/shortcuts";
 
 // Labels stay in English here and are translated at render time (t() must not run at import).
 type NavItem = { to: string; label: string; short?: string; icon: typeof LayoutDashboard; end?: boolean; badge?: (d?: Dashboard) => ReactNode };
@@ -256,6 +257,9 @@ export function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  const quick = useQuickActions();
+  const navigate = useNavigate();
+  useMacShortcuts({ newItem: () => quick.newTransaction(), search: () => setPalette(true), settings: () => navigate("/settings") });
 
   const [title, subtitle] = (() => {
     if (location.pathname === "/") return [t("Overview"), format(new Date(), "PPPP")];
@@ -278,7 +282,7 @@ export function AppShell() {
         </AnimatePresence>
 
         <div className="relative flex-1 min-w-0 flex flex-col bg-surface/55 backdrop-blur-2xl">
-          <header className="flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
+          <header data-tauri-drag-region className="app-header flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t("Open menu")} onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
             {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={t("Show sidebar")} onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
             <div className="min-w-0 flex-1 pl-1">

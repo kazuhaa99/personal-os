@@ -7,6 +7,8 @@ import { useAction, useSettings } from "@/lib/queries";
 import { useTheme, WALLPAPERS, type AccentMode, type ThemeMode } from "@/lib/theme";
 import { MAX_UPLOAD_BYTES } from "@/lib/wallpaperStore";
 import { useAuth } from "@/features/auth/AuthGate";
+import { IS_NATIVE } from "@/platform";
+import { AppLockCard } from "./AppLockCard";
 import { useConfirm } from "@/components/ui/dialog";
 import { Button, Card, CardHeader, cn, Field, Input, Segmented, Select } from "@/components/ui/primitives";
 import { useQueryClient } from "@tanstack/react-query";
@@ -207,6 +209,7 @@ export function SettingsPage() {
     <div className="max-w-2xl space-y-5">
       <AppearanceCard />
       <LanguageCard />
+      {IS_NATIVE && <AppLockCard />}
       <Card>
         <CardHeader title={<span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-ink-3" /> {t("Preferences")}</span>} />
         <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ timezone: tz }); }}>
