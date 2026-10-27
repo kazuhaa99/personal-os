@@ -168,7 +168,8 @@ def set_budget(data: BudgetSet, db: Session = Depends(get_db)):
 
 @router.get("/recurring", response_model=list[RecurringOut], tags=["recurring"])
 def list_recurring(db: Session = Depends(get_db)):
-    return [recurring.serialize(db, r) for r in recurring.list_rules(db)]
+    counts = recurring.confirmed_counts(db)
+    return [recurring.serialize(db, r, confirmed=counts.get(r.id, 0)) for r in recurring.list_rules(db)]
 
 
 @router.post("/recurring", response_model=RecurringOut, status_code=201, tags=["recurring"])

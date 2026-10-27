@@ -43,10 +43,34 @@ def _split_counts(by_status: dict[str, int]) -> tuple[int, int]:
     return sum(by_status.values()) - done, done
 
 
-def serialize(db: Session, goal: Goal, today: date) -> dict:
+def serialize_many(db: Session, goals: list[Goal], today: date) -> list[dict]:
+    """serialize() for a list, with the projects and task counts of all goals in two queries."""
+    ids = [g.id for g in goals]
+    if not ids:
+        return []
+    projects: dict[int, list[Project]] = {}
+    for project in db.scalars(select(Project).where(Project.goal_id.in_(ids)).order_by(Project.title)):
+        projects.setdefault(project.goal_id, []).append(project)
+    goal_of_project = {p.id: goal_id for goal_id, ps in projects.items() for p in ps}
+    by_status: dict[int, dict[str, int]] = {}
+    rows = db.execute(select(Task.goal_id, Task.project_id, Task.status, func.count())
+                      .where(or_(Task.goal_id.in_(ids), Task.project_id.in_(list(goal_of_project) or [-1])))
+                      .group_by(Task.goal_id, Task.project_id, Task.status))
+    for goal_id, project_id, status, n in rows:
+        # A task counts once for its goal and once for its project's goal (the same goal: once).
+        for gid in {goal_id, goal_of_project.get(project_id)} & set(ids):
+            counts = by_status.setdefault(gid, {})
+            counts[status] = counts.get(status, 0) + n
+    return [serialize(db, g, today, projects=projects.get(g.id, []), task_counts=_split_counts(by_status.get(g.id, {})))
+            for g in goals]
+
+
+def serialize(db: Session, goal: Goal, today: date, *, projects: list[Project] | None = None,
+              task_counts: tuple[int, int] | None = None) -> dict:
     progress = compute_progress(goal)
-    open_tasks, done_tasks = _task_counts(db, goal)
-    projects = list(db.scalars(select(Project).where(Project.goal_id == goal.id).order_by(Project.title)))
+    open_tasks, done_tasks = task_counts if task_counts is not None else _task_counts(db, goal)
+    if projects is None:
+        projects = list(db.scalars(select(Project).where(Project.goal_id == goal.id).order_by(Project.title)))
     return {
         "id": goal.id,
         "title": goal.title,

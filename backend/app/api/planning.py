@@ -89,7 +89,7 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 @router.get("/goals", response_model=list[GoalOut], tags=["goals"])
 def list_goals(include_archived: bool = False, db: Session = Depends(get_db)):
     today = today_for(db)
-    return [goals.serialize(db, g, today) for g in goals.list_goals(db, include_archived)]
+    return goals.serialize_many(db, goals.list_goals(db, include_archived), today)
 
 
 @router.post("/goals", response_model=GoalOut, status_code=201, tags=["goals"])
@@ -160,7 +160,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 def list_habits(include_archived: bool = False, history_days: int = Query(180, ge=7, le=730),
                 db: Session = Depends(get_db)):
     today = today_for(db)
-    return [habits.serialize(db, h, today, history_days) for h in habits.list_habits(db, include_archived)]
+    return habits.serialize_many(db, habits.list_habits(db, include_archived), today, history_days)
 
 
 @router.post("/habits", response_model=HabitOut, status_code=201, tags=["habits"])

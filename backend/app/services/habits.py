@@ -88,8 +88,19 @@ def rate(habit: Habit, done: set[date], start: date, end: date) -> Decimal | Non
     return percent(completed, _scheduled_count(habit, start, end))
 
 
-def serialize(db: Session, habit: Habit, today: date, history_days: int = 180) -> dict:
-    done = completion_dates(db, habit.id)
+def serialize_many(db: Session, items: list[Habit], today: date, history_days: int = 180) -> list[dict]:
+    """serialize() for a list, with every habit's completions in one query."""
+    done: dict[int, set[date]] = {h.id: set() for h in items}
+    if done:
+        rows = db.execute(select(HabitCompletion.habit_id, HabitCompletion.date).where(HabitCompletion.habit_id.in_(list(done))))
+        for habit_id, day in rows:
+            done[habit_id].add(day)
+    return [serialize(db, h, today, history_days, done=done[h.id]) for h in items]
+
+
+def serialize(db: Session, habit: Habit, today: date, history_days: int = 180, *, done: set[date] | None = None) -> dict:
+    if done is None:
+        done = completion_dates(db, habit.id)
     current, longest = streaks(habit, done, today)
     window_start = today - timedelta(days=history_days)
     return {

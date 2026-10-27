@@ -39,7 +39,17 @@ def _confirmed_dates(db: Session, rule_id: int) -> set[date]:
     )
 
 
-def serialize(db: Session, rule: RecurringRule) -> dict:
+def confirmed_counts(db: Session) -> dict[int, int]:
+    """Recorded transactions per rule, for all rules in one query."""
+    rows = db.execute(select(Transaction.recurring_rule_id, func.count())
+                      .where(Transaction.recurring_rule_id.is_not(None)).group_by(Transaction.recurring_rule_id))
+    return dict(rows.tuples().all())
+
+
+def serialize(db: Session, rule: RecurringRule, confirmed: int | None = None) -> dict:
+    """`confirmed`: the rule's count from confirmed_counts, when serializing many rules."""
+    if confirmed is None:
+        confirmed = db.scalar(select(func.count()).where(Transaction.recurring_rule_id == rule.id))
     return {
         "id": rule.id,
         "name": rule.name,
@@ -56,9 +66,7 @@ def serialize(db: Session, rule: RecurringRule) -> dict:
         "is_active": rule.is_active,
         "is_demo": rule.is_demo,
         "monthly_equivalent": monthly_equivalent(rule),
-        "confirmed_count": db.scalar(
-            select(func.count()).where(Transaction.recurring_rule_id == rule.id)
-        ),
+        "confirmed_count": confirmed,
     }
 
 
@@ -120,11 +128,23 @@ def delete_rule(db: Session, rule_id: int) -> None:
     db.commit()
 
 
-def pending_occurrences(db: Session, rule: RecurringRule, until: date) -> list[date]:
-    """Expected, not-yet-confirmed occurrences from next_due_date up to `until`."""
+def _confirmed_dates_by_rule(db: Session) -> dict[int, set[date]]:
+    """Confirmed occurrence dates of every rule, in one query."""
+    out: dict[int, set[date]] = {}
+    rows = db.execute(select(Transaction.recurring_rule_id, Transaction.recurring_occurrence_date)
+                      .where(Transaction.recurring_rule_id.is_not(None)))
+    for rule_id, day in rows:
+        out.setdefault(rule_id, set()).add(day)
+    return out
+
+
+def pending_occurrences(db: Session, rule: RecurringRule, until: date, confirmed: set[date] | None = None) -> list[date]:
+    """Expected, not-yet-confirmed occurrences from next_due_date up to `until`. `confirmed`: the
+    rule's dates from _confirmed_dates_by_rule, when going through many rules."""
     if not rule.is_active or rule.next_due_date is None:
         return []
-    confirmed = _confirmed_dates(db, rule.id)
+    if confirmed is None:
+        confirmed = _confirmed_dates(db, rule.id)
     return [
         d
         for d in occurrences(rule.start_date, rule.frequency, after=rule.next_due_date - timedelta(days=1),
@@ -207,8 +227,9 @@ def expected_payments(db: Session, days: int = 30, today: date | None = None) ->
     today = today or today_for(db)
     until = today + timedelta(days=days)
     out = []
+    confirmed = _confirmed_dates_by_rule(db)
     for rule in list_rules(db):
-        for d in pending_occurrences(db, rule, until):
+        for d in pending_occurrences(db, rule, until, confirmed.get(rule.id, set())):
             out.append(
                 {
                     "kind": "recurring",

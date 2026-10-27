@@ -21,10 +21,10 @@ def build(db: Session) -> dict:
     task_list = tasks.list_tasks(db, "today", today=today)
     upcoming = [t for t in tasks.list_tasks(db, "upcoming", today=today) if t.due_date <= today + timedelta(days=7)]
 
-    habit_rows = [habits.serialize(db, h, today, history_days=7) for h in habits.list_habits(db)]
+    habit_rows = habits.serialize_many(db, habits.list_habits(db), today, history_days=7)
     scheduled = [h for h in habit_rows if h["scheduled_today"]]
 
-    goal_rows = [goals.serialize(db, g, today) for g in goals.list_goals(db) if g.status == "active"]
+    goal_rows = goals.serialize_many(db, [g for g in goals.list_goals(db) if g.status == "active"], today)
 
     acc_rows = accounts.list_accounts(db, include_archived=False)
     cash_totals = accounts.totals_by_currency(db)
