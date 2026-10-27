@@ -83,6 +83,33 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class NativeSession(TimestampMixin, Base):
+    """A signed-in native app (iOS / macOS shell): bearer tokens instead of the web cookie.
+
+    Not Owned and without RLS, like `users`: a token is looked up before anyone is signed
+    in. Only SHA-256 hashes of the tokens are stored. Refresh tokens carry the session's
+    random `family` id, so presenting any already-rotated refresh token of the session is
+    recognised and revokes it (see services/native_tokens.py). Password changes and resets
+    delete the sessions.
+    """
+
+    __tablename__ = "native_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    family: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    device_name: Mapped[str] = mapped_column(String(64), default="", server_default="", nullable=False)
+    access_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    refresh_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    # The refresh hash before the last rotation, and when that happened: a client whose
+    # refresh response got lost may retry with it for a few seconds (REFRESH_RETRY_GRACE).
+    prev_refresh_hash: Mapped[str | None] = mapped_column(String(64))
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class AppSettings(Owned, TimestampMixin, Base):
     """One row per user: preferences."""
 

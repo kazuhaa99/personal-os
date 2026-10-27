@@ -2,7 +2,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.models import User
 from app.services import auth as svc
-from app.services import mail
+from app.services import mail, native_tokens
 from app.services.i18n import use_language
 from app.tenancy import current_user_id
 
@@ -88,22 +88,35 @@ class DeleteAccountIn(BaseModel):
     password: str = Field(max_length=200)
 
 
+class TokenIn(LoginIn):
+    device_name: str = Field(default="", max_length=native_tokens.DEVICE_NAME_MAX)
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str = Field(max_length=200)
+
+
 @router.get("/me")
-def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE), db: Session = Depends(get_db)):
+def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
+       authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
     s = get_settings()
     info = {"registration_open": s.allow_registration and mail.is_configured(), "auth_enabled": s.auth_enabled}
     uid = svc.session_user_id(db, session) if session else None
+    scheme, _, token = (authorization or "").partition(" ")
+    if uid is None and scheme.lower() == "bearer":  # native apps only; never the shared POS_API_TOKEN
+        native = native_tokens.session_for_access(db, token)
+        uid = native.user_id if native else None
     if not s.auth_enabled:
         uid = svc.first_user_id(db)
     user = db.get(User, uid) if uid else None
     return {**info, "authenticated": bool(user), "user": svc.user_out(user) if user else None}
 
 
-@router.post("/login")
-def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
+def _checked_login(request: Request, db: Session, identifier: str, password: str) -> User:
+    """Password sign-in shared by the cookie and the token endpoints (and their rate limit)."""
     _throttle(request, "login", count=False)
     try:
-        user = svc.authenticate(db, body.identifier, body.password)
+        user = svc.authenticate(db, identifier, password)
     except svc.Unauthorized:
         _throttle(request, "login")
         raise
@@ -116,7 +129,42 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
             except (svc.TooManyRequests, mail.MailUnavailable):
                 pass
         raise svc.EmailUnverified(f"Confirm your email to sign in. We sent a code to {user.email}.", details={"email": user.email})
-    return _sign_in(response, db, user)
+    return user
+
+
+@router.post("/login")
+def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
+    return _sign_in(response, db, _checked_login(request, db, body.identifier, body.password))
+
+
+# ------------------------------------------------------------------ native apps (bearer tokens)
+
+@router.post("/token")
+def issue_token(body: TokenIn, request: Request, db: Session = Depends(get_db)):
+    """Sign in a native app: an access + refresh token pair instead of the web cookie."""
+    user = _checked_login(request, db, body.identifier, body.password)
+    user.last_login_at = datetime.now(timezone.utc)
+    return native_tokens.issue(db, user, body.device_name)
+
+
+@router.post("/token/refresh")
+def refresh_token(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
+    # Only failures count: many devices behind one address refreshing normally never hit the limit.
+    _throttle(request, "refresh", count=False)
+    try:
+        return native_tokens.refresh(db, body.refresh_token)
+    except svc.Unauthorized:
+        _throttle(request, "refresh")
+        raise
+
+
+@router.post("/token/revoke", status_code=204, dependencies=[Depends(require_user)])
+def revoke_token(request: Request, db: Session = Depends(get_db)):
+    """Sign this native app out: both of its tokens stop working at once."""
+    session_id = getattr(request.state, "native_session_id", None)
+    if session_id is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in required", headers={"WWW-Authenticate": "Bearer"})
+    native_tokens.revoke(db, session_id)
 
 
 @router.post("/register", status_code=201)
@@ -188,7 +236,10 @@ def change_password(body: ChangePasswordIn, request: Request, response: Response
     user = db.get(User, current_user_id())
     if not svc.verify_password(body.current_password, user.password_hash):
         raise svc.ValidationFailed("Current password is wrong", code="password_wrong")
-    svc.set_password(db, user, body.new_password)
+    native_session = getattr(request.state, "native_session_id", None)
+    svc.set_password(db, user, body.new_password, keep_native_session=native_session)
+    if native_session is not None:
+        return {"authenticated": True, "user": svc.user_out(user)}  # this app keeps its tokens
     return _sign_in(response, db, user)  # this device stays signed in
 
 

@@ -8,12 +8,12 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.errors import Conflict, DomainError, ValidationFailed
-from app.models import User
+from app.models import NativeSession, User
 from app.services import mail
 from app.services.i18n import current
 from app.tenancy import acting_as
@@ -177,10 +177,15 @@ def needs_verification(user: User) -> bool:
     return bool(user.email) and user.email_verified_at is None
 
 
-def set_password(db: Session, user: User, password: str) -> None:
+def set_password(db: Session, user: User, password: str, keep_native_session: int | None = None) -> None:
     validate_password(password)
     user.password_hash = hash_password(password)
     user.session_epoch += 1  # signs out every other device
+    # ... native apps included; the one making the change (if any) stays signed in.
+    stale = delete(NativeSession).where(NativeSession.user_id == user.id)
+    if keep_native_session is not None:
+        stale = stale.where(NativeSession.id != keep_native_session)
+    db.execute(stale)
     db.commit()
 
 
