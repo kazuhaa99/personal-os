@@ -53,3 +53,33 @@ def test_a_too_short_configured_password_is_refused(db, monkeypatch):
     with pytest.raises(RuntimeError, match="POS_AUTH_PASSWORD"):
         svc.ensure_admin(db)
     assert svc.find_user(db, "admin") is None
+
+
+# ------------------------------------------------------------------ password hashing strength
+
+def _params(stored: str) -> tuple[int, int, int]:
+    _, n, r, p, _, _ = stored.split("$")
+    return int(n), int(r), int(p)
+
+
+@pytest.fixture
+def real_cost(monkeypatch):
+    monkeypatch.setattr(svc, "_SCRYPT", svc.SCRYPT_COST)
+
+
+def test_new_passwords_use_the_owasp_scrypt_cost(real_cost):
+    # OWASP: N=2^16, r=8, p=2 equals N=2^17, p=1 in work, with half the memory per sign-in.
+    assert _params(svc.hash_password("a password")) == (2**16, 8, 2)
+
+
+def test_an_older_weaker_hash_still_works_and_is_upgraded_on_sign_in(db, real_cost):
+    admin = svc.find_user(db, "admin")
+    old = svc.hash_password("adminuser123", n=2**14, r=8, p=1)
+    admin.password_hash = old
+    db.commit()
+
+    svc.authenticate(db, "admin", "adminuser123")
+    db.expire_all()
+    upgraded = svc.find_user(db, "admin").password_hash
+    assert upgraded != old and _params(upgraded) == (2**16, 8, 2)
+    assert svc.verify_password("adminuser123", upgraded)

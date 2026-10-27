@@ -97,22 +97,32 @@ def _sign(payload: str) -> str:
 
 # ------------------------------------------------------------------ passwords
 
-_SCRYPT = {"n": 2**14, "r": 8, "p": 1}
+# OWASP's scrypt setting with half the memory per sign-in of N=2^17, p=1 (same work): 64 MiB.
+SCRYPT_COST = {"n": 2**16, "r": 8, "p": 2}
+_SCRYPT = SCRYPT_COST  # the tests swap in a cheap cost (tests/conftest.py)
+_SCRYPT_MAXMEM = 2 * 128 * 2**16 * 8  # twice what N=2^16, r=8 needs (Python's default allows 32 MiB)
 
 
-def hash_password(password: str) -> str:
+def hash_password(password: str, **params: int) -> str:
+    """scrypt$N$r$p$salt$digest. `params` override the current cost (tests of older hashes)."""
+    cost = {**_SCRYPT, **params}
     salt = secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, dklen=32, **_SCRYPT)
-    return f"scrypt${_SCRYPT['n']}${_SCRYPT['r']}${_SCRYPT['p']}${salt.hex()}${digest.hex()}"
+    digest = hashlib.scrypt(password.encode(), salt=salt, dklen=32, maxmem=_SCRYPT_MAXMEM, **cost)
+    return f"scrypt${cost['n']}${cost['r']}${cost['p']}${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, stored: str) -> bool:
     try:
         _, n, r, p, salt, digest = stored.split("$")
-        got = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32)
+        got = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32,
+                             maxmem=_SCRYPT_MAXMEM)
     except (ValueError, TypeError):
         return False
     return hmac.compare_digest(got.hex(), digest)
+
+
+def _outdated(stored: str) -> bool:
+    return not stored.startswith(f"scrypt${_SCRYPT['n']}${_SCRYPT['r']}${_SCRYPT['p']}$")
 
 
 # A real-looking hash so "unknown user" costs the same time as "wrong password".
@@ -211,6 +221,9 @@ def authenticate(db: Session, identifier: str, password: str) -> User:
     ok = verify_password(password, user.password_hash if user else _DUMMY_HASH)
     if not user or not ok:
         raise Unauthorized("Wrong username or password")
+    if _outdated(user.password_hash):  # hashed with an older, weaker cost: upgrade it now
+        user.password_hash = hash_password(password)
+        db.commit()
     return user
 
 

@@ -17,6 +17,7 @@ from app import rls  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services import auth as auth_service  # noqa: E402
 from app.services.auth import ensure_admin, first_user_id  # noqa: E402
 from app.tenancy import set_current_user  # noqa: E402
 
@@ -41,7 +42,13 @@ def schema():
 
 
 @pytest.fixture(autouse=True)
-def clean():
+def cheap_password_hashing(monkeypatch):
+    """The real scrypt cost takes 0.25 s per hash; tests that check the cost restore it."""
+    monkeypatch.setattr(auth_service, "_SCRYPT", {"n": 2**10, "r": 8, "p": 1})
+
+
+@pytest.fixture(autouse=True)
+def clean(cheap_password_hashing):
     tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
     with owner_engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
