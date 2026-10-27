@@ -135,6 +135,14 @@ class TransactionUpdate(Input):
     payee: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=120)] = None
     tags: list[Tag] | None = None
 
+    # Leave a field out to keep it; these can't be cleared, so null is a mistake, not "no change".
+    @field_validator("type", "amount", "date", "account_id", "description", "tags", mode="before")
+    @classmethod
+    def not_null(cls, v):
+        if v is None:
+            raise ValueError("can't be empty; leave the field out to keep its value")
+        return v
+
 
 class AccountRef(ORM):
     id: int

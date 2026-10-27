@@ -93,6 +93,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "Choose an existing {rule_type} category": ("Выберите существующую категорию {rule_type}", "기존 {rule_type} 카테고리를 선택해 주세요"),
     "Category '{cat.name}' is archived": ("Категория «{cat.name}» в архиве", "카테고리 ‘{cat.name}’이(가) 보관돼 있어요"),
     # --- transactions
+    "can't be empty; leave the field out to keep its value": ("не может быть пустым; чтобы оставить как есть, не передавайте поле", "비워 둘 수 없어요. 그대로 두려면 이 필드를 보내지 마세요"),
     "a transfer needs a destination account (to_account_id)": ("Для перевода нужен счёт зачисления", "이체에는 입금 계좌가 필요해요"),
     "a transfer needs two different accounts": ("Для перевода нужны два разных счёта", "이체에는 서로 다른 두 계좌가 필요해요"),
     "A transfer needs two different accounts": ("Для перевода нужны два разных счёта", "이체에는 서로 다른 두 계좌가 필요해요"),
