@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -80,7 +81,10 @@ def _load_or_create_key(path: Path) -> bytes:
         log.warning("Could not save the session key to %s (%s): sessions end at every restart. "
                     "Set POS_SECRET_KEY to keep them.", path, type(exc).__name__)
     finally:
-        tmp.unlink(missing_ok=True)
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass  # read-only filesystem: nothing was written, nothing to clean up
     return key
 
 
@@ -305,8 +309,9 @@ def revoke_session(db: Session, token: str) -> None:
         return
     now = datetime.now(timezone.utc)
     db.execute(delete(RevokedWebSession).where(RevokedWebSession.expires_at < now))
-    if db.get(RevokedWebSession, fields[3]) is None:
-        db.add(RevokedWebSession(token_id=fields[3], expires_at=datetime.fromtimestamp(fields[2], timezone.utc)))
+    expires = datetime.fromtimestamp(fields[2], timezone.utc)
+    # ON CONFLICT: two tabs signing out with the same cookie at once both succeed.
+    db.execute(pg_insert(RevokedWebSession).values(token_id=fields[3], expires_at=expires).on_conflict_do_nothing())
     db.commit()
 
 

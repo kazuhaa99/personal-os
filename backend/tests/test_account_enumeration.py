@@ -2,7 +2,11 @@
 sending the email fails or is rate-limited; and they must never claim a code went out when it didn't."""
 
 import pytest
+from fastapi import BackgroundTasks
+from starlette.requests import Request
 
+from app.api import auth as auth_api
+from app.db import SessionLocal
 from app.services import mail
 from tests.test_accounts_auth import code_from, outbox, register  # noqa: F401  (fixture)
 
@@ -36,7 +40,6 @@ def test_resend_code_is_204_for_known_unknown_and_too_soon(client, outbox, monke
 def test_sign_in_does_not_claim_a_code_was_sent_when_mail_failed(client, outbox, monkeypatch):  # noqa: F811
     client.post("/api/auth/register", json={"username": "ola", "email": "ola@example.com", "password": "12345678"})
     _break_mail(monkeypatch)
-    from app.db import SessionLocal
     from app.services import auth as svc
 
     with SessionLocal() as db:  # the first code has expired: signing in must send a new one
@@ -57,3 +60,20 @@ def test_sign_in_reports_the_code_it_sent(client, outbox):  # noqa: F811
     r = client.post("/api/auth/login", json={"identifier": "pia", "password": "12345678"})
     assert r.status_code == 403
     assert r.json()["error"]["details"] == {"email": "pia@example.com", "code_sent": True}
+
+
+def test_a_code_sent_after_the_reply_keeps_the_readers_language(client, verified, outbox):  # noqa: F811
+    r = client.post("/api/auth/password/forgot", json={"identifier": "vera"}, headers={"Accept-Language": "ru"})
+    assert r.status_code == 204
+    assert outbox[-1][0] == "vera@example.com" and outbox[-1][1].startswith("Сброс пароля")
+
+
+def test_the_code_is_sent_only_after_the_reply(verified, monkeypatch):
+    """An existing account's reply mustn't wait for SMTP, or its timing would give it away."""
+    sent = []
+    monkeypatch.setattr(mail, "send", lambda *a: sent.append(a))
+    tasks = BackgroundTasks()
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": ("192.0.2.9", 1)})
+    with SessionLocal() as db:
+        auth_api.forgot_password(auth_api.IdentifierIn(identifier="vera"), request, tasks, db)
+    assert sent == [] and len(tasks.tasks) == 1

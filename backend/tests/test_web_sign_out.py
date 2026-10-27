@@ -49,3 +49,10 @@ def test_expired_revocations_are_cleaned_up(client, outbox, db):  # noqa: F811
     client.post("/api/auth/logout")
     assert [r.token_id for r in db.scalars(select(RevokedWebSession))] != ["0" * 16]
     assert db.scalar(select(func.count()).select_from(RevokedWebSession)) == 1
+
+
+def test_signing_out_twice_with_the_same_cookie_is_fine(client, outbox, db):  # noqa: F811
+    cookie = _signed_in_cookie(client)
+    svc.revoke_session(db, cookie)
+    svc.revoke_session(db, cookie)  # e.g. a second tab, at the same moment
+    assert db.scalar(select(func.count()).select_from(RevokedWebSession)) == 1
