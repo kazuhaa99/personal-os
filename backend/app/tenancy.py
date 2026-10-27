@@ -98,6 +98,7 @@ def _owned_classes_by_table(session: Session) -> dict[str, type]:
 def _stamp_and_check(session: Session, _ctx, _instances) -> None:
     uid = current_user_id()
     owned = None
+    links: dict[tuple[type, str], list] = {}
     for obj in list(session.new) + list(session.dirty):
         if not isinstance(obj, Owned):
             continue
@@ -115,9 +116,19 @@ def _stamp_and_check(session: Session, _ctx, _instances) -> None:
             for fk in col.foreign_keys:
                 target = owned.get(fk.column.table.name)
                 value = getattr(obj, col.key, None)
-                if target is None or value is None:
-                    continue
-                with session.no_autoflush:
-                    found = session.execute(select(getattr(target, fk.column.key)).where(getattr(target, fk.column.key) == value)).first()
-                if found is None:
-                    raise NotFound(f"{target.__name__} {value} not found")
+                if target is not None and value is not None:
+                    links.setdefault((target, fk.column.key), []).append(value)
+    _check_links_exist(session, links)
+
+
+def _check_links_exist(session: Session, links: dict[tuple[type, str], list]) -> None:
+    """Every linked row must be visible to the current user (the criteria above filter by owner):
+    one query per linked table and column, however many rows the flush writes."""
+    for (target, key), values in links.items():
+        column = getattr(target, key)
+        wanted = list(dict.fromkeys(values))
+        with session.no_autoflush:
+            found = set(session.scalars(select(column).where(column.in_(wanted))))
+        value = next((v for v in wanted if v not in found), None)
+        if value is not None:
+            raise NotFound(f"{target.__name__} {value} not found")
