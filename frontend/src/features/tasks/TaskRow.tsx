@@ -33,7 +33,7 @@ export function TaskCheck({ task }: { task: Task }) {
       onClick={() => toggle.mutate(undefined)}
       disabled={toggle.isPending}
       className={cn(
-        "mt-0.5 h-[18px] w-[18px] shrink-0 rounded-[5px] border grid place-items-center transition-colors",
+        "tap-target mt-0.5 h-[18px] w-[18px] shrink-0 rounded-[5px] border grid place-items-center transition-colors",
         done ? "bg-accent border-accent text-accent-ink" : "border-ink-3/50 hover:border-accent",
       )}
     >

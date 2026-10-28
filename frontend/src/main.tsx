@@ -17,6 +17,7 @@ import { IS_NATIVE, PLATFORM } from "./platform";
 import { setStatusBar } from "./platform/native";
 import "@fontsource-variable/inter";
 import "./index.css";
+import { MotionConfig } from "framer-motion";
 
 if (IS_NATIVE) {
   // The shells bundle the static files themselves: no service worker. CSS hooks for native-only tweaks.
@@ -56,6 +57,8 @@ function NativeChrome() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
+    {/* "Reduce motion" in the OS: framer-motion drops movement and keeps fades (CSS does the same in index.css). */}
+    <MotionConfig reducedMotion="user">
     <ThemeProvider>
     <DataProvider>
     <LangProvider>
@@ -72,5 +75,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </LangProvider>
     </DataProvider>
     </ThemeProvider>
+    </MotionConfig>
   </React.StrictMode>,
 );

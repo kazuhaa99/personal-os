@@ -39,7 +39,7 @@ function QuickAdd({ dueToday }: { dueToday: boolean }) {
       className="flex items-center gap-3 px-4 h-12 border-b hairline focus-within:bg-accent/[0.04] transition-colors">
       <Plus className="h-4 w-4 text-accent shrink-0" />
       <input aria-label={t("Quick add task")} placeholder={dueToday ? t("New task for today") : t("New task")} value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)}
-        className="flex-1 bg-transparent text-sm outline-none focus-visible:outline-none placeholder:text-ink-3" />
+        className="flex-1 self-stretch bg-transparent text-sm placeholder:text-ink-3 focus-visible:outline-offset-[-4px]" />
       {title.trim() && <kbd className="inline-flex items-center gap-1 rounded bg-fill/[0.06] px-1.5 py-0.5 text-[11px] text-ink-3"><CornerDownLeft className="h-3 w-3" /> {t("to add")}</kbd>}
     </form>
   );

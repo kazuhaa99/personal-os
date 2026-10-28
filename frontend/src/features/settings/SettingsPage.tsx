@@ -140,7 +140,7 @@ function AppearanceCard() {
           {accentMode === "wallpaper" && vivid === null && (
             <p className="text-2xs text-ink-3">{t("This wallpaper has hardly any colour, so the standard accent is used.")}</p>
           )}
-          <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer select-none">
+          <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer select-none coarse:min-h-11">
             <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={tint} onChange={(e) => setTint(e.target.checked)} />
             {t("Tint the glass with the wallpaper colour")}
           </label>

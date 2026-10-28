@@ -93,7 +93,7 @@ function CategoryManager() {
         </Select>
       } />
       <form className="flex gap-2 px-5 pb-3" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(undefined); }}>
-        <input type="color" aria-label={t("Color")} value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded-lg bg-transparent border hairline p-1" />
+        <input type="color" aria-label={t("Color")} value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 shrink-0 coarse:h-11 coarse:w-11 rounded-lg bg-transparent border hairline p-1" />
         <Input placeholder={kind === "income" ? t("New income category") : t("New expense category")} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         <Button type="submit" disabled={!name.trim()} loading={create.isPending}><Plus className="h-4 w-4" /></Button>
       </form>

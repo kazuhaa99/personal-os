@@ -134,6 +134,7 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
           </Link>
         )}
         <SideLink item={{ to: "/settings", label: "Settings", icon: Settings }} onNavigate={onNavigate} />
+        {onNavigate && <div className="flex gap-1 px-1 md:hidden"><LanguageMenu /><ThemeMenu /></div>}
         <ProfileChip onNavigate={onNavigate} />
       </div>
     </div>
@@ -219,12 +220,12 @@ function NewMenu() {
   const navigate = useNavigate();
   return (
     <div className="flex">
-      <Button variant="primary" size="sm" className="h-8 rounded-r-none px-3" onClick={() => qa.newTransaction()}>
+      <Button variant="primary" size="sm" className="h-8 rounded-r-none px-3 coarse:min-w-11" onClick={() => qa.newTransaction()}>
         <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t("New Transaction")}</span>
       </Button>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5" aria-label={t("More create options")}><ChevronDown className="h-4 w-4" /></Button>
+          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5 coarse:w-11" aria-label={t("More create options")}><ChevronDown className="h-4 w-4" /></Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="end" sideOffset={8} className={menuContent}>
@@ -293,7 +294,8 @@ export function AppShell() {
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div key={title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}>
                   <h1 className="text-[15px] font-semibold leading-5 truncate">{title}</h1>
-                  <p className="text-xs text-ink-3 truncate tnum">{subtitle}</p>
+                  {/* Long languages need two short lines on a phone rather than a cut-off one. */}
+                  <p className="text-xs leading-[0.875rem] text-ink-3 tnum line-clamp-2 sm:truncate sm:leading-4">{subtitle}</p>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -302,8 +304,8 @@ export function AppShell() {
               <kbd className="inline-flex items-center gap-0.5 rounded bg-surface px-1.5 py-0.5 text-[11px] border hairline"><Command className="h-3 w-3" />K</kbd>
             </button>
             <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("Search")} onClick={() => setPalette(true)}><Search className="h-4 w-4" /></Button>
-            <LanguageMenu />
-            <ThemeMenu />
+            {/* On phones these two live in the menu, leaving the header room for its title. */}
+            <div className="hidden md:contents"><LanguageMenu /><ThemeMenu /></div>
             <NewMenu />
           </header>
 

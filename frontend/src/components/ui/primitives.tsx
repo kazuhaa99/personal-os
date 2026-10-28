@@ -38,9 +38,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm transition-[background-color,filter,transform] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
-        size === "md" && "h-9 px-3.5",
-        size === "sm" && "h-7 px-2.5 text-xs",
-        size === "icon" && "h-8 w-8",
+        size === "md" && "h-9 px-3.5 coarse:h-11",
+        size === "sm" && "h-7 px-2.5 text-xs coarse:h-11 coarse:px-3",
+        size === "icon" && "h-8 w-8 coarse:h-11 coarse:w-11",
         VARIANTS[variant],
         className,
       )}
@@ -55,15 +55,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 // ------------------------------------------------------------------ form controls
 
 const control =
-  "field w-full rounded-lg px-3 text-sm text-ink placeholder:text-ink-3 transition-shadow focus:outline-none focus:ring-[3px] focus:ring-accent/35 disabled:opacity-60 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-bad/60";
+  "field w-full rounded-lg px-3 text-sm text-ink placeholder:text-ink-3 transition-shadow disabled:opacity-60 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-bad/60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
-  return <input ref={ref} className={cn(control, "h-9", className)} {...rest} />;
+  return <input ref={ref} className={cn(control, "h-9 coarse:h-11", className)} {...rest} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...rest }, ref) {
   return (
-    <select ref={ref} className={cn(control, "h-9 pr-8 select-chevron", className)} {...rest}>
+    <select ref={ref} className={cn(control, "h-9 coarse:h-11 pr-8 select-chevron", className)} {...rest}>
       {children}
     </select>
   );
@@ -86,7 +86,7 @@ export function Field({ label, error, hint, children, className }: { label: stri
 
 export function Checkbox({ checked, onChange, label, className }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; className?: string }) {
   return (
-    <label className={cn("inline-flex items-center gap-2 text-sm text-ink-2 cursor-pointer select-none", className)}>
+    <label className={cn("inline-flex items-center gap-2 text-sm text-ink-2 cursor-pointer select-none coarse:min-h-11", className)}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded accent-[rgb(var(--accent))]" />
       {label}
     </label>
@@ -110,7 +110,7 @@ export function CardHeader({ title, subtitle, action, to, className }: { title: 
     <div className={cn("flex items-start justify-between gap-3 px-5 pt-4 pb-3", className)}>
       <div className="min-w-0">
         {to ? (
-          <Link to={to} className="text-[15px] font-semibold text-ink hover:text-accent transition-colors">{title}</Link>
+          <Link to={to} className="text-[15px] font-semibold text-ink hover:text-accent transition-colors coarse:inline-flex coarse:min-h-11 coarse:items-center">{title}</Link>
         ) : (
           <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         )}
@@ -214,8 +214,8 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors",
-            size === "md" ? "h-8" : "h-7 text-xs px-2.5",
+            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors coarse:min-w-11",
+            size === "md" ? "h-8 coarse:h-11" : "h-7 text-xs px-2.5 coarse:h-11",
             value === o.value ? "text-ink" : "text-ink-2 hover:text-ink",
           )}
         >
