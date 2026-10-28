@@ -1,7 +1,11 @@
 import { getLang, t } from "./i18n";
-import { BASE } from "./base";
+import { ApiError, toApiError } from "./apiError";
+import { apiUrl } from "./base";
+import { accessToken, refreshSession } from "./nativeSession";
+import { IS_NATIVE } from "@/platform";
 
-// Thin fetch wrapper. All requests go to the same origin (/api, proxied by Vite).
+// Thin fetch wrapper. Requests go to API_BASE (lib/base.ts): same origin on the web (proxied by
+// Vite in dev, by nginx in production), an absolute URL in the native builds.
 
 const TOKEN_KEY = "pos.apiToken";
 
@@ -22,11 +26,7 @@ export function setToken(token: string) {
   }
 }
 
-export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string, public details?: unknown) {
-    super(message);
-  }
-}
+export { ApiError };
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
@@ -39,26 +39,61 @@ export function qs(params: Query = {}): string {
   return out ? `?${out}` : "";
 }
 
-async function request<T>(method: string, path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+const isTokenEndpoint = (path: string) => path.startsWith("/auth/token");
+
+/**
+ * Web: the session cookie goes by itself; the optional manual API token from Settings is added.
+ * Native: the access token (after restoring the session from the keychain on a cold start).
+ */
+async function authHeaders(path: string): Promise<Record<string, string>> {
+  if (!IS_NATIVE) {
+    const token = getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+  if (!accessToken() && !isTokenEndpoint(path)) await refreshSession();
+  const access = accessToken();
+  return access ? { Authorization: `Bearer ${access}` } : {};
+}
+
+/**
+ * fetch() with our credentials. Native: a 401 refreshes the session once and repeats the request
+ * (or just repeats it, when another request already refreshed meanwhile). A request that can't
+ * reach the server at all fails with a plain "no connection" ApiError (status 0).
+ */
+async function authedFetch(path: string, init: Omit<RequestInit, "headers"> & { headers?: Record<string, string> } = {}): Promise<Response> {
+  let sentWith: string | undefined;
+  const send = async () => {
+    const auth = await authHeaders(path);
+    sentWith = auth.Authorization;
+    return fetch(apiUrl(path), { ...init, headers: { ...init.headers, ...auth } });
+  };
+  try {
+    let res = await send();
+    if (IS_NATIVE && res.status === 401 && !isTokenEndpoint(path)) {
+      const now = accessToken();
+      if ((now && `Bearer ${now}` !== sentWith) || (await refreshSession()) === "ok") res = await send();
+    }
+    return res;
+  } catch (e) {
+    if (e instanceof TypeError) throw new ApiError(0, t("No connection to the server"), "offline");
+    throw e;
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown, init: Omit<RequestInit, "headers"> = {}): Promise<T> {
   // Accept-Language lets the server localise generated text (insights).
   const headers: Record<string, string> = { "Accept-Language": getLang() };
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`${BASE}api${path}`, { method, headers, body: payload, ...init });
+  const res = await authedFetch(path, { method, headers, body: payload, ...init });
   if (res.status === 204) return undefined as T;
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await res.json() : await res.text();
-  if (!res.ok) {
-    const err = isJson ? (data as { error?: { message?: string; code?: string; details?: unknown }; detail?: string }) : null;
-    const message = err?.error?.message ?? err?.detail ?? (res.status === 401 ? t("Sign in required") : t("Request failed ({status})", { status: res.status }));
-    throw new ApiError(res.status, message, err?.error?.code, err?.error?.details);
-  }
+  if (!res.ok) throw toApiError(res.status, isJson ? data : null);
   return data as T;
 }
 
@@ -69,8 +104,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T = void>(path: string, body?: unknown) => request<T>("DELETE", path, body),
   async download(path: string, params: Query, filename: string) {
-    const token = getToken();
-    const res = await fetch(`${BASE}api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const res = await authedFetch(path + qs(params));
     if (!res.ok) throw new ApiError(res.status, t("Export failed ({status})", { status: res.status }));
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");

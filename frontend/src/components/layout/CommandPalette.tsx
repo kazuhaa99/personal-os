@@ -122,11 +122,11 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 <li key={c.id} role="option" aria-selected={idx === active}>
                   {header && <p className="px-3 pt-2.5 pb-1 text-xs font-semibold text-ink-3">{header}</p>}
                   <button data-idx={idx} onMouseMove={() => setActive(idx)} onClick={() => run(c)}
-                    className={cn("flex w-full items-center gap-3 h-9 px-3 rounded-[9px] text-left text-sm", idx === active ? "bg-accent text-white" : "text-ink")}>
-                    <span className={idx === active ? "text-white" : "text-ink-3"}>{c.icon}</span>
+                    className={cn("flex w-full items-center gap-3 h-9 px-3 rounded-[9px] text-left text-sm", idx === active ? "bg-accent text-accent-ink" : "text-ink")}>
+                    <span className={idx === active ? "text-accent-ink" : "text-ink-3"}>{c.icon}</span>
                     <span className="flex-1 truncate">{c.label}</span>
-                    {c.hint && <span className={cn("text-xs tnum", idx === active ? "text-white/85" : "text-ink-3")}>{c.hint}</span>}
-                    {idx === active && <CornerDownLeft className="h-3.5 w-3.5 text-white/85" />}
+                    {c.hint && <span className={cn("text-xs tnum", idx === active ? "text-accent-ink/85" : "text-ink-3")}>{c.hint}</span>}
+                    {idx === active && <CornerDownLeft className="h-3.5 w-3.5 text-accent-ink/85" />}
                   </button>
                 </li>
               );

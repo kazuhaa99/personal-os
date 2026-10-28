@@ -4,9 +4,12 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import { LANGUAGES, t, useLang, type Lang } from "@/lib/i18n";
 import { useAction, useSettings } from "@/lib/queries";
+import { setAppTimeZone } from "@/lib/format";
 import { useTheme, WALLPAPERS, type AccentMode, type ThemeMode } from "@/lib/theme";
 import { MAX_UPLOAD_BYTES } from "@/lib/wallpaperStore";
 import { useAuth } from "@/features/auth/AuthGate";
+import { IS_NATIVE } from "@/platform";
+import { AppLockCard } from "./AppLockCard";
 import { useConfirm } from "@/components/ui/dialog";
 import { Button, Card, CardHeader, cn, Field, Input, Segmented, Select } from "@/components/ui/primitives";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,7 +71,7 @@ function AppearanceCard() {
   };
 
   const tileFrame = "relative block aspect-[4/3] overflow-hidden rounded-xl ring-1 ring-line/10 transition-shadow";
-  const selectedMark = <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>;
+  const selectedMark = <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-accent-ink"><Check className="h-3 w-3" strokeWidth={3} /></span>;
 
   return (
     <div {...dragProps}>
@@ -76,7 +79,7 @@ function AppearanceCard() {
       <CardHeader title={<span className="inline-flex items-center gap-2"><Palette className="h-4 w-4 text-ink-3" /> {t("Appearance")}</span>}
         subtitle={t("Stored in this browser, including your own photo — it isn't uploaded to the server. Glass surfaces show the wallpaper through; text always sits on a near-opaque layer.")} />
       <div className="px-5 pb-5 space-y-4">
-        <Segmented<ThemeMode> value={mode} onChange={setMode} options={[{ value: "light", label: t("Light") }, { value: "dark", label: t("Dark") }, { value: "system", label: t("Match system") }]} />
+        <Segmented<ThemeMode> label={t("Appearance")} value={mode} onChange={setMode} options={[{ value: "light", label: t("Light") }, { value: "dark", label: t("Dark") }, { value: "system", label: t("Match system") }]} />
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5" role="radiogroup" aria-label={t("Wallpaper")}>
           {WALLPAPERS.map((w) => (
             <button key={w.id} type="button" role="radio" aria-checked={wallpaper === w.id} onClick={() => setWallpaper(w.id)} className="group text-left">
@@ -131,13 +134,13 @@ function AppearanceCard() {
               <span aria-hidden className="h-4 w-4 rounded-full bg-accent ring-1 ring-black/10" />
               {t("Accent colour")}
             </span>
-            <Segmented<AccentMode> size="sm" value={accentMode} onChange={setAccentMode}
+            <Segmented<AccentMode> size="sm" label={t("Accent colour")} value={accentMode} onChange={setAccentMode}
               options={[{ value: "wallpaper", label: t("From wallpaper") }, { value: "default", label: t("Standard blue") }]} />
           </div>
           {accentMode === "wallpaper" && vivid === null && (
             <p className="text-2xs text-ink-3">{t("This wallpaper has hardly any colour, so the standard accent is used.")}</p>
           )}
-          <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer select-none">
+          <label className="flex items-center gap-2.5 text-sm text-ink cursor-pointer select-none coarse:min-h-11">
             <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={tint} onChange={(e) => setTint(e.target.checked)} />
             {t("Tint the glass with the wallpaper colour")}
           </label>
@@ -158,7 +161,7 @@ function LanguageCard() {
       <CardHeader title={<span className="inline-flex items-center gap-2"><Languages className="h-4 w-4 text-ink-3" /> {t("Language")}</span>}
         subtitle={t("Interface language. Your own records stay as you typed them.")} />
       <div className="px-5 pb-5">
-        <Segmented<Lang> value={lang} onChange={setLang} options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))} />
+        <Segmented<Lang> label={t("Language")} value={lang} onChange={setLang} options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))} />
       </div>
     </Card>
   );
@@ -207,9 +210,10 @@ export function SettingsPage() {
     <div className="max-w-2xl space-y-5">
       <AppearanceCard />
       <LanguageCard />
+      {IS_NATIVE && <AppLockCard />}
       <Card>
         <CardHeader title={<span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-ink-3" /> {t("Preferences")}</span>} />
-        <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ timezone: tz }); }}>
+        <form className="px-5 pb-5 space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate({ timezone: tz }, { onSuccess: () => setAppTimeZone(tz) }); }}>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label={t("Timezone")} hint={t("Defines 'today' for tasks, habits and schedules")}>{(id) => (
               <Select id={id} value={tz} onChange={(e) => setTz(e.target.value)}>

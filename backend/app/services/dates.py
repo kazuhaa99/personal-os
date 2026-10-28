@@ -35,6 +35,10 @@ def add_months(d: date, months: int, anchor_day: int | None = None) -> date:
     return date(year, month, day)
 
 
+# YYYY-MM with a real month (01–12) and a year from 1000: what the API accepts as a month.
+MONTH_PATTERN = r"^[1-9]\d{3}-(0[1-9]|1[0-2])$"
+
+
 def parse_month(value: str) -> date:
     """'2026-03' -> date(2026, 3, 1)."""
     try:

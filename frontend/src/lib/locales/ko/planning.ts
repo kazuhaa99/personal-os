@@ -197,4 +197,7 @@ export const planning: Dict = {
   "No habits yet": "아직 습관이 없어요",
   "Reading, practicing guitar, exercising, a consistent bedtime — start with one or two.": "독서, 기타 연습, 운동, 규칙적인 취침 — 한두 개부터 시작해 보세요.",
   "Create a habit": "습관 만들기",
+  "Actions for {name}": "{name} 작업",
+  "Streak · best {n}": "연속 · 최고 {n}",
+  "Save progress": "진행률 저장",
 };

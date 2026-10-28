@@ -1,0 +1,47 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Personal OS",
+  "version": "0.1.0",
+  "identifier": "com.kazuhaa99.personalos",
+  "build": {
+    "frontendDist": "../dist-mac",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run dev:mac",
+    "beforeBuildCommand": "npm run build:mac"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Personal OS",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 720,
+        "minHeight": 560,
+        "resizable": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob: http://127.0.0.1:* http://localhost:*",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:*"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "category": "Finance",
+    "shortDescription": "Life and finance hub",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns"],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    }
+  }
+}

@@ -35,6 +35,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     # --- auth & account
     "Too many attempts. Try again in a few minutes.": ("Слишком много попыток. Попробуйте через несколько минут.", "시도 횟수가 너무 많아요. 몇 분 후 다시 시도해 주세요."),
     "Confirm your email to sign in. We sent a code to {user.email}.": ("Подтвердите почту, чтобы войти. Мы отправили код на {user.email}.", "로그인하려면 이메일을 인증해 주세요. {user.email}(으)로 코드를 보냈어요."),
+    "Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.": ("Подтвердите почту, чтобы войти. Сейчас не получилось отправить код, попробуйте через несколько минут.", "로그인하려면 이메일을 인증해 주세요. 지금은 코드를 보내지 못했어요. 몇 분 후 다시 시도해 주세요."),
     "Registration is closed": ("Регистрация закрыта", "회원가입이 닫혀 있어요"),
     "Wrong code": ("Неверный код", "코드가 올바르지 않아요"),
     "This email is already confirmed": ("Эта почта уже подтверждена", "이미 인증된 이메일이에요"),
@@ -56,6 +57,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "Too many wrong codes. Request a new one.": ("Слишком много неверных кодов. Запросите новый.", "잘못된 코드를 너무 많이 입력했어요. 새 코드를 요청해 주세요."),
     "Email sending is not configured on the server (POS_SMTP_PASSWORD)": ("На сервере не настроена отправка писем (POS_SMTP_PASSWORD)", "서버에 메일 발송이 설정되지 않았어요 (POS_SMTP_PASSWORD)"),
     "Could not send the email. Check the SMTP settings and try again.": ("Не удалось отправить письмо. Проверьте настройки SMTP и попробуйте снова.", "메일을 보내지 못했어요. SMTP 설정을 확인하고 다시 시도해 주세요."),
+    "'{acc.name}' is in {acc.currency}: enter the amount in {acc.currency}": ("Счёт «{acc.name}» в {acc.currency}: укажите сумму в {acc.currency}", "'{acc.name}' 계좌는 {acc.currency} 통화예요. {acc.currency}로 금액을 입력해 주세요"),
     # --- generic
     "{target.__name__} {value} not found": ("Не найдено: {target.__name__} {value}", "찾을 수 없어요: {target.__name__} {value}"),
     "'end' must not be before 'start'": ("Конец периода не может быть раньше начала", "종료일은 시작일보다 빠를 수 없어요"),
@@ -91,6 +93,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     "Choose an existing {rule_type} category": ("Выберите существующую категорию {rule_type}", "기존 {rule_type} 카테고리를 선택해 주세요"),
     "Category '{cat.name}' is archived": ("Категория «{cat.name}» в архиве", "카테고리 ‘{cat.name}’이(가) 보관돼 있어요"),
     # --- transactions
+    "can't be empty; leave the field out to keep its value": ("не может быть пустым; чтобы оставить как есть, не передавайте поле", "비워 둘 수 없어요. 그대로 두려면 이 필드를 보내지 마세요"),
     "a transfer needs a destination account (to_account_id)": ("Для перевода нужен счёт зачисления", "이체에는 입금 계좌가 필요해요"),
     "a transfer needs two different accounts": ("Для перевода нужны два разных счёта", "이체에는 서로 다른 두 계좌가 필요해요"),
     "A transfer needs two different accounts": ("Для перевода нужны два разных счёта", "이체에는 서로 다른 두 계좌가 필요해요"),

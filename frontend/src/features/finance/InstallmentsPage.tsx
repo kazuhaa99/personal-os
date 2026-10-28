@@ -30,7 +30,7 @@ function PlanForm({ open, onOpenChange, editing }: { open: boolean; onOpenChange
     });
   }, [open, editing]);
 
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/installments/${editing.id}`, body) : api.post("/installments", body)), {
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/installments/${editing.id}`, body) : api.post("/installments", body)), { refresh: ["finance"],
     success: editing ? t("Plan updated") : t("Plan added"), onSuccess: () => onOpenChange(false),
   });
 
@@ -113,7 +113,7 @@ function PaymentForm({ plan, onClose }: { plan: InstallmentPlan | null; onClose:
     const min = Number(plan.payment_amount) < Number(plan.outstanding) ? plan.payment_amount : plan.outstanding;
     setAmount(min); setDate(todayISO()); setAccount(String(plan.default_account_id ?? "")); setRecordTx(true); setError(null);
   }, [plan]);
-  const save = useAction((body: Record<string, unknown>) => api.post(`/installments/${plan!.id}/payments`, body), { success: t("Payment recorded"), onSuccess: onClose });
+  const save = useAction((body: Record<string, unknown>) => api.post(`/installments/${plan!.id}/payments`, body), { refresh: ["finance"], success: t("Payment recorded"), onSuccess: onClose });
 
   return (
     <Modal open={!!plan} onOpenChange={(o) => !o && onClose()} title={`${t("Record payment")} · ${plan?.name ?? ""}`}
@@ -150,8 +150,8 @@ export function InstallmentsPage() {
   const [form, setForm] = useState<{ open: boolean; editing: InstallmentPlan | null }>({ open: false, editing: null });
   const [paying, setPaying] = useState<InstallmentPlan | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const delPayment = useAction(({ plan, id }: { plan: number; id: number }) => api.del(`/installments/${plan}/payments/${id}`), { success: t("Payment deleted") });
-  const delPlan = useAction((id: number) => api.del(`/installments/${id}`), { success: t("Plan deleted") });
+  const delPayment = useAction(({ plan, id }: { plan: number; id: number }) => api.del(`/installments/${plan}/payments/${id}`), { refresh: ["finance"], success: t("Payment deleted") });
+  const delPlan = useAction((id: number) => api.del(`/installments/${id}`), { refresh: ["finance"], success: t("Plan deleted") });
 
   const totals = (plans ?? []).filter((p) => p.status === "active" || p.status === "paused");
 

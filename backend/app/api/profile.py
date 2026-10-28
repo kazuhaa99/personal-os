@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -30,8 +31,11 @@ def read_avatar(db: Session = Depends(get_db)):
 @router.put("/avatar", response_model=ProfileOut)
 async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read(svc.AVATAR_MAX_BYTES + 1)
-    svc.set_avatar(db, content)
-    return svc.profile_out(db)
+    def save() -> dict:  # decoding the image and saving it block: keep them off the event loop
+        svc.set_avatar(db, content)
+        return svc.profile_out(db)
+
+    return await run_in_threadpool(save)
 
 
 @router.delete("/avatar", response_model=ProfileOut)

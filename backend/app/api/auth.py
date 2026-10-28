@@ -1,41 +1,24 @@
-import time
-from collections import deque
+import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api import throttle
 from app.api.deps import require_user
 from app.config import get_settings
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.models import User
 from app.services import auth as svc
-from app.services import mail
-from app.services.i18n import use_language
+from app.services import mail, native_tokens
+from app.services.i18n import current as current_language
+from app.services.i18n import set_language, use_language
 from app.tenancy import current_user_id
 
+log = logging.getLogger("personal_os")
+
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(use_language)])
-
-# Crude brute-force brake per client and action: at most 10 attempts per 5 minutes.
-_hits: dict[tuple[str, str], deque[float]] = {}
-_WINDOW, _MAX = 300, 10
-
-
-def _throttle(request: Request, action: str, count: bool = True) -> None:
-    client = request.client.host if request.client else "?"
-    q = _hits.setdefault((client, action), deque())
-    while q and q[0] < time.time() - _WINDOW:
-        q.popleft()
-    if len(q) >= _MAX:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")
-    if count:
-        q.append(time.time())
-
-
-def _clear(request: Request, action: str) -> None:
-    _hits.pop((request.client.host if request.client else "?", action), None)
-
 
 def _sign_in(response: Response, db: Session, user: User) -> dict:
     s = get_settings()
@@ -88,42 +71,98 @@ class DeleteAccountIn(BaseModel):
     password: str = Field(max_length=200)
 
 
+class TokenIn(LoginIn):
+    device_name: str = Field(default="", max_length=native_tokens.DEVICE_NAME_MAX)
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str = Field(max_length=200)
+
+
 @router.get("/me")
-def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE), db: Session = Depends(get_db)):
+def me(session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
+       authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
     s = get_settings()
     info = {"registration_open": s.allow_registration and mail.is_configured(), "auth_enabled": s.auth_enabled}
     uid = svc.session_user_id(db, session) if session else None
+    scheme, _, token = (authorization or "").partition(" ")
+    if uid is None and scheme.lower() == "bearer":  # native apps only; never the shared POS_API_TOKEN
+        native = native_tokens.session_for_access(db, token)
+        uid = native.user_id if native else None
     if not s.auth_enabled:
         uid = svc.first_user_id(db)
     user = db.get(User, uid) if uid else None
     return {**info, "authenticated": bool(user), "user": svc.user_out(user) if user else None}
 
 
-@router.post("/login")
-def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "login", count=False)
-    try:
-        user = svc.authenticate(db, body.identifier, body.password)
-    except svc.Unauthorized:
-        _throttle(request, "login")
-        raise
-    _clear(request, "login")
+def _checked_login(request: Request, db: Session, identifier: str, password: str) -> User:
+    """Password sign-in shared by the cookie and the token endpoints (and their rate limit)."""
+    # One limit per account whether it's named by username or email; unknown names get their own.
+    known = svc.find_user(db, identifier)
+    account = f"user:{known.id}" if known else f"name:{identifier.strip().lower()}"
+    address = throttle.client(request)
+    exempt = known is not None and throttle.trusted(known.id, address)
+    with throttle.failures_only(request, "login", account=None if exempt else account):
+        user = svc.authenticate(db, identifier, password)
+    throttle.remember(user.id, address)
     if svc.needs_verification(user):
         # Password was right but the email was never confirmed: send (or reuse) a code.
-        if not svc.code_pending(user, "verify"):
-            try:
-                svc.send_code(db, user, "verify")
-            except (svc.TooManyRequests, mail.MailUnavailable):
-                pass
-        raise svc.EmailUnverified(f"Confirm your email to sign in. We sent a code to {user.email}.", details={"email": user.email})
-    return _sign_in(response, db, user)
+        sent = svc.code_pending(user, "verify") or _send_quietly(db, user, "verify")
+        details = {"email": user.email, "code_sent": sent}
+        if sent:
+            raise svc.EmailUnverified(f"Confirm your email to sign in. We sent a code to {user.email}.", details=details)
+        raise svc.EmailUnverified("Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.", details=details)
+    return user
+
+
+def _send_quietly(db: Session, user: User, purpose: str) -> bool:
+    """Send a code where the reply must not reveal whether it worked (or whether the account exists)."""
+    try:
+        svc.send_code(db, user, purpose)
+        return True
+    except svc.TooManyRequests:
+        return False
+    except mail.MailUnavailable:
+        log.error("could not send a %s code", purpose)  # already logged by mail with the cause
+        return False
+
+
+@router.post("/login")
+def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
+    return _sign_in(response, db, _checked_login(request, db, body.identifier, body.password))
+
+
+# ------------------------------------------------------------------ native apps (bearer tokens)
+
+@router.post("/token")
+def issue_token(body: TokenIn, request: Request, db: Session = Depends(get_db)):
+    """Sign in a native app: an access + refresh token pair instead of the web cookie."""
+    user = _checked_login(request, db, body.identifier, body.password)
+    user.last_login_at = datetime.now(timezone.utc)
+    return native_tokens.issue(db, user, body.device_name)
+
+
+@router.post("/token/refresh")
+def refresh_token(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
+    # Only failures count: many devices behind one address refreshing normally never hit the limit.
+    with throttle.failures_only(request, "refresh"):
+        return native_tokens.refresh(db, body.refresh_token)
+
+
+@router.post("/token/revoke", status_code=204, dependencies=[Depends(require_user)])
+def revoke_token(request: Request, db: Session = Depends(get_db)):
+    """Sign this native app out: both of its tokens stop working at once."""
+    session_id = getattr(request.state, "native_session_id", None)
+    if session_id is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in required", headers={"WWW-Authenticate": "Bearer"})
+    native_tokens.revoke(db, session_id)
 
 
 @router.post("/register", status_code=201)
 def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
     if not get_settings().allow_registration:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Registration is closed")
-    _throttle(request, "register")
+    throttle.per_client(request, "register")
     user = svc.create_user(db, body.username, body.email, body.password)
     svc.send_code(db, user, "verify")
     return {"pending_verification": True, "email": user.email, "username": user.username}
@@ -131,7 +170,7 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/verify-email")
 def verify_email(body: CodeIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "verify")
+    throttle.per_client(request, "verify")
     user = svc.find_user(db, body.identifier)
     if user is None:
         raise svc.ValidationFailed("Wrong code", code="code_wrong")
@@ -144,28 +183,39 @@ def verify_email(body: CodeIn, request: Request, response: Response, db: Session
 
 
 @router.post("/resend-code", status_code=204)
-def resend_code(body: IdentifierIn, request: Request, db: Session = Depends(get_db)):
-    _throttle(request, "resend")
+def resend_code(body: IdentifierIn, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Always 204, so the response never tells whether an account exists."""
+    throttle.per_client(request, "resend")
     user = svc.find_user(db, body.identifier)
     if user is not None and svc.needs_verification(user):
-        svc.send_code(db, user, "verify")
+        _send_after_reply(background, user, "verify")
 
 
 @router.post("/password/forgot", status_code=204)
-def forgot_password(body: IdentifierIn, request: Request, db: Session = Depends(get_db)):
+def forgot_password(body: IdentifierIn, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Always 204, so the response never tells whether an account exists."""
-    _throttle(request, "forgot")
+    throttle.per_client(request, "forgot")
     user = svc.find_user(db, body.identifier)
     if user is not None and user.email and user.email_verified_at:
-        try:
-            svc.send_code(db, user, "reset")
-        except svc.TooManyRequests:
-            pass
+        _send_after_reply(background, user, "reset")
+
+
+def _send_after_reply(background: BackgroundTasks, user: User, purpose: str) -> None:
+    """Send once the reply is out, so an existing account answers as fast as an unknown one."""
+    background.add_task(_send_in_background, user.id, purpose, current_language())
+
+
+def _send_in_background(user_id: int, purpose: str, language: str) -> None:
+    set_language(language)
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        if user is not None:
+            _send_quietly(db, user, purpose)
 
 
 @router.post("/password/reset")
 def reset_password(body: ResetIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "reset")
+    throttle.per_client(request, "reset")
     user = svc.find_user(db, body.identifier)
     if user is None:
         raise svc.ValidationFailed("Wrong code", code="code_wrong")
@@ -176,7 +226,10 @@ def reset_password(body: ResetIn, request: Request, response: Response, db: Sess
 
 
 @router.post("/logout", status_code=204)
-def logout(response: Response):
+def logout(response: Response, session: str | None = Cookie(default=None, alias=svc.SESSION_COOKIE),
+           db: Session = Depends(get_db)):
+    if session:
+        svc.revoke_session(db, session)
     response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")
 
 
@@ -184,17 +237,20 @@ def logout(response: Response):
 
 @router.post("/password/change", dependencies=[Depends(require_user)])
 def change_password(body: ChangePasswordIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    _throttle(request, "change-password")
+    throttle.per_client(request, "change-password")
     user = db.get(User, current_user_id())
     if not svc.verify_password(body.current_password, user.password_hash):
         raise svc.ValidationFailed("Current password is wrong", code="password_wrong")
-    svc.set_password(db, user, body.new_password)
+    native_session = getattr(request.state, "native_session_id", None)
+    svc.set_password(db, user, body.new_password, keep_native_session=native_session)
+    if native_session is not None:
+        return {"authenticated": True, "user": svc.user_out(user)}  # this app keeps its tokens
     return _sign_in(response, db, user)  # this device stays signed in
 
 
 @router.post("/email/change", dependencies=[Depends(require_user)])
 def change_email(body: ChangeEmailIn, request: Request, db: Session = Depends(get_db)):
-    _throttle(request, "change-email")
+    throttle.per_client(request, "change-email")
     user = db.get(User, current_user_id())
     if not svc.verify_password(body.password, user.password_hash):
         raise svc.ValidationFailed("Current password is wrong", code="password_wrong")
@@ -232,7 +288,7 @@ def confirm_email_change(body: ConfirmIn, db: Session = Depends(get_db)):
 @router.delete("/me", status_code=204, dependencies=[Depends(require_user)])
 def delete_account(body: DeleteAccountIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Permanently delete the signed-in account and all of its data."""
-    _throttle(request, "delete-account")
+    throttle.per_client(request, "delete-account")
     user = db.get(User, current_user_id())
     svc.delete_account(db, user, body.password)
     response.delete_cookie(svc.SESSION_COOKIE, path=get_settings().cookie_path, secure=get_settings().cookie_secure, httponly=True, samesite="strict")

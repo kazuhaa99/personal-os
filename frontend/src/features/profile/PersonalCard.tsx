@@ -7,6 +7,7 @@ import { useAction } from "@/lib/queries";
 import type { Profile } from "@/lib/types";
 import { Button, Card, CardHeader, cn, Field, Input, Textarea } from "@/components/ui/primitives";
 import { PROFILE_KEY } from "./shared";
+import { todayISO } from "@/lib/format";
 
 const BIO_MAX = 2000;
 type Form = { first_name: string; last_name: string; phone: string; birthday: string; city: string; occupation: string; employer: string; bio: string };
@@ -45,7 +46,7 @@ export function PersonalCard({ profile }: { profile: Profile }) {
     save.mutate(body);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   return (
     <Card>
@@ -65,7 +66,10 @@ export function PersonalCard({ profile }: { profile: Profile }) {
           <span className={cn("tnum", f.bio.length > BIO_MAX * 0.9 && "text-warn")}>{f.bio.length} / {BIO_MAX}</span>
         }>{(id) => <Textarea id={id} rows={4} value={f.bio} maxLength={BIO_MAX} placeholder={t("A few words about yourself")} onChange={set("bio")} className="resize-y" />}</Field>
         <div className="flex items-center gap-3 pt-1">
-          <Button type="submit" variant="primary" disabled={!changed.length} loading={save.isPending}>{t("Save")}</Button>
+          {/* No greyed-out button: say why there is nothing to do instead. */}
+          {(changed.length > 0 || save.isPending) && <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>}
+          {/* Always mounted, so screen readers announce it when it fills in. */}
+          <span role="status" className="text-xs text-ink-2">{changed.length === 0 && !save.isPending ? t("No unsaved changes") : ""}</span>
           {changed.length > 0 && !save.isPending && (
             <Button variant="ghost" onClick={() => setF(initial)}>{t("Reset")}</Button>
           )}

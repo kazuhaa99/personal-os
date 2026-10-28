@@ -120,9 +120,6 @@ def _linked_payment(db: Session, tx_id: int) -> InstallmentPayment | None:
 def update_transaction(db: Session, tx_id: int, data: TransactionUpdate) -> Transaction:
     tx = get_transaction(db, tx_id)
     fields = data.model_dump(exclude_unset=True)
-    for required in ("type", "amount", "date", "account_id", "description", "tags"):
-        if required in fields and fields[required] is None:
-            fields.pop(required)
 
     payment = _linked_payment(db, tx.id)
     if payment and any(k in fields and fields[k] != getattr(tx, k) for k in ("type", "amount", "account_id")):
@@ -137,6 +134,8 @@ def update_transaction(db: Session, tx_id: int, data: TransactionUpdate) -> Tran
         if tx.type != "transfer":
             fields["category_id"] = None
     else:
+        if fields.get("to_account_id") is not None:
+            raise ValidationFailed("only transfers have a destination account")
         fields["to_account_id"] = None
         if tx.type == "transfer" and "category_id" not in fields:
             raise ValidationFailed(f"Choose a category when changing a transfer into an {new_type}")

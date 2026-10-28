@@ -1,4 +1,5 @@
-import { formatMoney, isNegative, normalizeAmount } from "./format";
+import { afterEach, vi } from "vitest";
+import { formatMoney, isNegative, normalizeAmount, nowInAppZone, setAppTimeZone, todayISO } from "./format";
 import { qs } from "./api";
 
 const T = " ";
@@ -43,5 +44,37 @@ describe("helpers", () => {
   it("qs drops empty params", () => {
     expect(qs({ a: 1, b: "", c: null, d: undefined, e: false })).toBe("?a=1&e=false");
     expect(qs({})).toBe("");
+  });
+});
+
+describe("today in the timezone from Settings, not the browser's", () => {
+  afterEach(() => { vi.useRealTimers(); setAppTimeZone(null); });
+
+  it("follows the configured zone across the date line", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-27T12:00:00Z"));
+    setAppTimeZone("Pacific/Kiritimati"); // UTC+14: already the 28th
+    expect(todayISO()).toBe("2026-10-28");
+    expect(nowInAppZone().getHours()).toBe(2);
+    setAppTimeZone("Pacific/Pago_Pago"); // UTC-11: still the 27th
+    expect(todayISO()).toBe("2026-10-27");
+  });
+
+  it("ignores a zone the browser doesn't know", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 27, 23, 30));
+    setAppTimeZone("Not/AZone");
+    expect(todayISO()).toBe("2026-10-27");
+  });
+});
+
+describe("formatMoney whole amounts", () => {
+  it("rounds to whole units, half away from zero, without floats", () => {
+    expect(formatMoney("32466.67", "KZT", { decimals: "none" })).toBe(`32${T}467${T}₸`);
+    expect(formatMoney("32466.49", "KZT", { decimals: "none" })).toBe(`32${T}466${T}₸`);
+    expect(formatMoney("999.5", "KZT", { decimals: "none" })).toBe(`1${T}000${T}₸`);
+    expect(formatMoney("-0.4", "KZT", { decimals: "none" })).toBe(`0${T}₸`);
+    expect(formatMoney("-12.5", "USD", { decimals: "none" })).toBe(`−13${T}$`);
+    expect(formatMoney("99999999999999.99", "KZT", { decimals: "none" })).toBe(`100${T}000${T}000${T}000${T}000${T}₸`);
   });
 });

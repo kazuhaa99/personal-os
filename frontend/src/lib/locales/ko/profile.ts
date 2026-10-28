@@ -134,4 +134,5 @@ export const profile: Dict = {
   "Delete forever": "영구 삭제",
   "Your account was deleted": "계정이 삭제됐어요",
   "This is the only account, so it can't be deleted.": "유일한 계정이라 삭제할 수 없어요.",
+  "No unsaved changes": "저장할 변경 사항이 없어요",
 };

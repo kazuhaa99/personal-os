@@ -13,8 +13,12 @@ import { useConfirm } from "@/components/ui/dialog";
 import { Button, Card, CardHeader, cn, EmptyState, ErrorBlock, LoadingBlock, Segmented, Select } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "./TaskRow";
+import { oneOf } from "@/lib/urlParams";
+import { viewCounts } from "./viewCounts";
 
-type View = "today" | "upcoming" | "all" | "overdue" | "completed";
+const VIEWS = ["today", "upcoming", "all", "overdue", "completed"] as const;
+type View = (typeof VIEWS)[number];
+const PRIORITIES = ["", "low", "medium", "high", "urgent"] as const;
 
 const EMPTY: Record<View, [string, string]> = {
   today: ["Nothing due today", "Add something above, or enjoy the free time."],
@@ -27,7 +31,7 @@ const EMPTY: Record<View, [string, string]> = {
 /** Inline quick add, styled as the first row of the list. */
 function QuickAdd({ dueToday }: { dueToday: boolean }) {
   const [title, setTitle] = useState("");
-  const add = useAction((title: string) => api.post("/tasks", { title, due_date: dueToday ? todayISO() : null }), {
+  const add = useAction((title: string) => api.post("/tasks", { title, due_date: dueToday ? todayISO() : null }), { refresh: ["tasks"],
     success: dueToday ? t("Added for today") : t("Task added"), onSuccess: () => setTitle(""),
   });
   return (
@@ -35,7 +39,7 @@ function QuickAdd({ dueToday }: { dueToday: boolean }) {
       className="flex items-center gap-3 px-4 h-12 border-b hairline focus-within:bg-accent/[0.04] transition-colors">
       <Plus className="h-4 w-4 text-accent shrink-0" />
       <input aria-label={t("Quick add task")} placeholder={dueToday ? t("New task for today") : t("New task")} value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)}
-        className="flex-1 bg-transparent text-sm outline-none focus-visible:outline-none placeholder:text-ink-3" />
+        className="flex-1 self-stretch bg-transparent text-sm placeholder:text-ink-3 focus-visible:outline-offset-[-4px]" />
       {title.trim() && <kbd className="inline-flex items-center gap-1 rounded bg-fill/[0.06] px-1.5 py-0.5 text-[11px] text-ink-3"><CornerDownLeft className="h-3 w-3" /> {t("to add")}</kbd>}
     </form>
   );
@@ -73,8 +77,8 @@ function DayRing({ done, total }: { done: number; total: number }) {
 
 export function TasksPage() {
   const [params, setParams] = useSearchParams();
-  const view = (params.get("view") as View) ?? "today";
-  const priority = params.get("priority") ?? "";
+  const view = oneOf<View>(params.get("view"), VIEWS, "today");
+  const priority = oneOf(params.get("priority"), PRIORITIES, "");
   const category = params.get("category") ?? "";
   const confirm = useConfirm();
   const qa = useQuickActions();
@@ -86,8 +90,9 @@ export function TasksPage() {
     queryFn: () => api.get<Task[]>("/tasks", { view, priority, category }),
   });
   const { data: upcoming = [] } = useQuery({ queryKey: ["tasks", "upcoming", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "upcoming" }) });
-  const { data: all = [] } = useQuery({ queryKey: ["tasks", "all", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "all" }) });
-  const clearDone = useAction(async (ids: number[]) => { for (const id of ids) await api.del(`/tasks/${id}`); }, { success: t("Completed tasks cleared") });
+  const { data: all } = useQuery({ queryKey: ["tasks", "all", "", ""], queryFn: () => api.get<Task[]>("/tasks", { view: "all" }) });
+  const tabCounts = all ? viewCounts(all, today, { priority, category }) : undefined;
+  const clearDone = useAction(async (ids: number[]) => { for (const id of ids) await api.del(`/tasks/${id}`); }, { refresh: ["tasks"], success: t("Completed tasks cleared") });
 
   const set = (patch: Record<string, string>) => {
     const n = new URLSearchParams(params);
@@ -95,7 +100,7 @@ export function TasksPage() {
     setParams(n, { replace: true });
   };
 
-  const open = all.filter((t) => t.status !== "done");
+  const open = (all ?? []).filter((t) => t.status !== "done");
   const lists = Object.entries(open.reduce<Record<string, number>>((acc, t) => { const k = t.category ?? ""; acc[k] = (acc[k] ?? 0) + 1; return acc; }, {}))
     .sort((a, b) => b[1] - a[1]);
   const doneToday = counts?.done_today ?? 0;
@@ -108,11 +113,11 @@ export function TasksPage() {
       {/* Main list */}
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Segmented value={view} onChange={(v) => set({ view: v })} options={[
-            { value: "today", label: t("Today"), count: counts ? counts.today + counts.overdue : undefined },
-            { value: "upcoming", label: t("Upcoming"), count: counts?.upcoming_7d },
+          <Segmented label={t("View")} value={view} onChange={(v) => set({ view: v })} options={[
+            { value: "today", label: t("Today"), count: tabCounts?.today },
+            { value: "upcoming", label: t("Upcoming"), count: tabCounts?.upcoming },
             { value: "all", label: t("All") },
-            { value: "overdue", label: t("Overdue"), count: counts?.overdue },
+            { value: "overdue", label: t("Overdue"), count: tabCounts?.overdue },
             { value: "completed", label: t("Completed") },
           ]} />
           <div className="flex gap-2 ml-auto">

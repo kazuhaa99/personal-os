@@ -1,3 +1,5 @@
+import plugin from "tailwindcss/plugin";
+
 /** @type {import('tailwindcss').Config} */
 const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
 export default {
@@ -16,7 +18,7 @@ export default {
         accent: { DEFAULT: v("accent"), ink: v("accent-ink") },
         good: v("good"),
         warn: v("warn"),
-        bad: v("bad"),
+        bad: { DEFAULT: v("bad"), ink: v("bad-ink") },
         demo: v("demo"),
       },
       fontFamily: {
@@ -27,5 +29,6 @@ export default {
       fontSize: { "2xs": ["0.6875rem", "1rem"] },
     },
   },
-  plugins: [],
+  // coarse: touch screens, where controls get 44 px (Apple HIG, WCAG 2.5.5).
+  plugins: [plugin(({ addVariant }) => addVariant("coarse", "@media (pointer: coarse)"))],
 };

@@ -87,7 +87,8 @@ function SalaryCard({ profile }: { profile: Profile }) {
               onChange={(e) => setF((s) => ({ ...s, payday: e.target.value }))} />
           )}</Field>
         </div>
-        <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>{t("Save")}</Button>
+        {(dirty || save.isPending) && <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>}
+        <span role="status" className="text-xs text-ink-2">{!dirty && !save.isPending ? t("No unsaved changes") : ""}</span>
       </form>
     </Card>
   );
@@ -106,7 +107,7 @@ function SourceForm({ open, onOpenChange, editing }: { open: boolean; onOpenChan
       frequency: editing?.frequency ?? "monthly", note: editing?.note ?? "",
     });
   }, [open, editing]);
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/profile/incomes/${editing.id}`, body) : api.post("/profile/incomes", body)), {
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/profile/incomes/${editing.id}`, body) : api.post("/profile/incomes", body)), { refresh: ["profile"],
     success: editing ? t("Income source updated") : t("Income source added"), onSuccess: () => onOpenChange(false),
   });
 
@@ -145,8 +146,8 @@ function SourceForm({ open, onOpenChange, editing }: { open: boolean; onOpenChan
 
 function SourceRow({ source, onEdit }: { source: IncomeSource; onEdit: () => void }) {
   const confirm = useConfirm();
-  const toggle = useAction((is_active: boolean) => api.patch(`/profile/incomes/${source.id}`, { is_active }));
-  const remove = useAction(() => api.del(`/profile/incomes/${source.id}`), { success: t("Income source deleted") });
+  const toggle = useAction((is_active: boolean) => api.patch(`/profile/incomes/${source.id}`, { is_active }), { refresh: ["profile"] });
+  const remove = useAction(() => api.del(`/profile/incomes/${source.id}`), { refresh: ["profile"], success: t("Income source deleted") });
   const active = toggle.isPending ? !!toggle.variables : source.is_active;
 
   return (

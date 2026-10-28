@@ -174,4 +174,6 @@ export const money: Dict = {
   "{n} rejected": "{n}건 거부됨",
   "Rejected rows (fix and re-import)": "거부된 행 (수정 후 다시 가져오세요)",
   "Duplicates (already recorded, will not be imported)": "중복 (이미 기록되어 가져오지 않아요)",
+  "From": "시작",
+  "To": "종료",
 };

@@ -56,8 +56,9 @@ def streaks(habit: Habit, done: set[date], today: date) -> tuple[int, int]:
                 break
         d -= timedelta(days=1)
 
+    # Nothing before the first check-in can be part of a run: start counting there.
     longest = run = 0
-    d = habit.start_date
+    d = max(habit.start_date, min(done, default=today))
     while d <= today:
         if is_scheduled(habit, d):
             if d in done:
@@ -69,19 +70,37 @@ def streaks(habit: Habit, done: set[date], today: date) -> tuple[int, int]:
     return current, max(longest, current)
 
 
+def _scheduled_count(habit: Habit, start: date, end: date) -> int:
+    """Scheduled days in [start, end], by whole weeks plus the few days left over."""
+    if end < start:
+        return 0
+    days = (end - start).days + 1
+    if habit.schedule == "daily":
+        return days
+    weeks, rest = divmod(days, 7)
+    leftover = sum(1 for i in range(rest) if habit.weekday_mask & (1 << (start + timedelta(days=i)).weekday()))
+    return weeks * bin(habit.weekday_mask & 0b1111111).count("1") + leftover
+
+
 def rate(habit: Habit, done: set[date], start: date, end: date) -> Decimal | None:
-    scheduled = completed = 0
-    d = max(start, habit.start_date)
-    while d <= end:
-        if is_scheduled(habit, d):
-            scheduled += 1
-            completed += d in done
-        d += timedelta(days=1)
-    return percent(completed, scheduled)
+    start = max(start, habit.start_date)
+    completed = sum(1 for d in done if start <= d <= end and is_scheduled(habit, d))
+    return percent(completed, _scheduled_count(habit, start, end))
 
 
-def serialize(db: Session, habit: Habit, today: date, history_days: int = 180) -> dict:
-    done = completion_dates(db, habit.id)
+def serialize_many(db: Session, items: list[Habit], today: date, history_days: int = 180) -> list[dict]:
+    """serialize() for a list, with every habit's completions in one query."""
+    done: dict[int, set[date]] = {h.id: set() for h in items}
+    if done:
+        rows = db.execute(select(HabitCompletion.habit_id, HabitCompletion.date).where(HabitCompletion.habit_id.in_(list(done))))
+        for habit_id, day in rows:
+            done[habit_id].add(day)
+    return [serialize(db, h, today, history_days, done=done[h.id]) for h in items]
+
+
+def serialize(db: Session, habit: Habit, today: date, history_days: int = 180, *, done: set[date] | None = None) -> dict:
+    if done is None:
+        done = completion_dates(db, habit.id)
     current, longest = streaks(habit, done, today)
     window_start = today - timedelta(days=history_days)
     return {

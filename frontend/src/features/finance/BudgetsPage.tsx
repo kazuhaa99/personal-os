@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { addMonths, format, parseISO } from "date-fns";
-import { AlertOctagon, AlertTriangle, ChevronLeft, ChevronRight, PiggyBank, Plus } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ChevronLeft, ChevronRight, CircleSlash, Pencil, PiggyBank, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { formatMoney, monthLabel, normalizeAmount } from "@/lib/format";
+import { formatMoney, monthLabel, normalizeAmount, nowInAppZone } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAction, useCategories } from "@/lib/queries";
 import type { BudgetLine, BudgetMonth } from "@/lib/types";
 import { Modal, useConfirm } from "@/components/ui/dialog";
 import { Button, Card, cn, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Progress, Select } from "@/components/ui/primitives";
+import { monthParam } from "@/lib/urlParams";
 
 function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolean; onOpenChange: (o: boolean) => void; month: string; line: BudgetLine | null; usedIds: number[] }) {
   const { data: categories = [] } = useCategories();
@@ -21,7 +22,7 @@ function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolea
     setLastOpen(open);
     if (open) { setCategoryId(line ? String(line.category_id) : ""); setAmount(line?.limit ?? ""); setError(null); }
   }
-  const save = useAction((body: Record<string, unknown>) => api.put("/budgets", body), { success: t("Budget saved"), onSuccess: () => onOpenChange(false) });
+  const save = useAction((body: Record<string, unknown>) => api.put("/budgets", body), { refresh: ["finance"], success: t("Budget saved"), onSuccess: () => onOpenChange(false) });
   const options = categories.filter((c) => c.kind === "expense" && !c.is_archived && (!usedIds.includes(c.id) || c.id === line?.category_id));
 
   function submit() {
@@ -48,11 +49,11 @@ function BudgetForm({ open, onOpenChange, month, line, usedIds }: { open: boolea
 
 export function BudgetsPage() {
   const [params, setParams] = useSearchParams();
-  const month = params.get("month") ?? format(new Date(), "yyyy-MM");
+  const month = monthParam(params.get("month"), format(nowInAppZone(), "yyyy-MM"));
   const confirm = useConfirm();
   const [form, setForm] = useState<{ open: boolean; line: BudgetLine | null }>({ open: false, line: null });
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["budgets", month], queryFn: () => api.get<BudgetMonth>("/budgets", { month }) });
-  const disable = useAction((line: BudgetLine) => api.put("/budgets", { category_id: line.category_id, month, amount: line.limit, is_active: false }), { success: t("Budget disabled from this month") });
+  const disable = useAction((line: BudgetLine) => api.put("/budgets", { category_id: line.category_id, month, amount: line.limit, is_active: false }), { refresh: ["finance"], success: t("Budget disabled from this month") });
   const shift = (n: number) => setParams({ month: format(addMonths(parseISO(`${month}-01`), n), "yyyy-MM") });
 
   async function onDisable(line: BudgetLine) {
@@ -87,7 +88,7 @@ export function BudgetsPage() {
             </div>
             <div>
               <p className="text-xs text-ink-3">{t("Unbudgeted spending")}</p>
-              <Link to={`/finances/transactions?type=expense&start=${month}-01&end=${format(addMonths(parseISO(`${month}-01`), 1).getTime() - 86400000, "yyyy-MM-dd")}`} className="text-base tnum hover:text-accent">{formatMoney(data.unbudgeted_spent, cur)}</Link>
+              <Link to={`/finances/transactions?type=expense&start=${month}-01&end=${format(addMonths(parseISO(`${month}-01`), 1).getTime() - 86400000, "yyyy-MM-dd")}`} className="text-base tnum hover:text-accent coarse:inline-flex coarse:min-h-11 coarse:items-center">{formatMoney(data.unbudgeted_spent, cur)}</Link>
             </div>
           </Card>
           <Card className="divide-y divide-line/[0.08]">
@@ -114,11 +115,11 @@ export function BudgetsPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-3">
                     <span className="tnum">{t("{pct}% used", { pct: l.utilization ?? "—" })}</span>
                     <span className="tnum">{t("Last month: {amount}", { amount: formatMoney(l.previous_month_spent, cur) })}</span>
-                    <span className="tnum">{t("3-month avg: {amount}", { amount: l.average_3m_spent === null ? t("not enough history") : formatMoney(l.average_3m_spent, cur) })}</span>
+                    <span className="tnum">{t("3-month avg: {amount}", { amount: l.average_3m_spent === null ? t("not enough history") : formatMoney(l.average_3m_spent, cur, { decimals: "none" }) })}</span>
                     <span>{t("Limit since {month}", { month: monthLabel(l.effective_since) })}</span>
-                    <span className="ml-auto flex gap-1 opacity-70 group-hover:opacity-100">
-                      <Button size="sm" variant="ghost" onClick={() => setForm({ open: true, line: l })}>{t("Edit")}</Button>
-                      <Button size="sm" variant="ghost" onClick={() => onDisable(l)}>{t("Disable")}</Button>
+                    <span className="ml-auto flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setForm({ open: true, line: l })}><Pencil className="h-3.5 w-3.5" />{t("Edit")}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => onDisable(l)}><CircleSlash className="h-3.5 w-3.5" />{t("Disable")}</Button>
                     </span>
                   </div>
                 </div>

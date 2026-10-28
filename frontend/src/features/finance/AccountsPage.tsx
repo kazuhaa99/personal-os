@@ -29,7 +29,7 @@ function AccountForm({ open, onOpenChange, editing }: { open: boolean; onOpenCha
     setNotes(editing?.notes ?? "");
   }, [open, editing]);
 
-  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/accounts/${editing.id}`, body) : api.post("/accounts", body)), {
+  const save = useAction((body: Record<string, unknown>) => (editing ? api.patch(`/accounts/${editing.id}`, body) : api.post("/accounts", body)), { refresh: ["finance"],
     success: editing ? t("Account updated") : t("Account created"), onSuccess: () => onOpenChange(false),
   });
 
@@ -76,9 +76,9 @@ function CategoryManager() {
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [name, setName] = useState("");
   const [color, setColor] = useState("#8b8b94");
-  const create = useAction(() => api.post("/categories", { name: name.trim(), kind, color }), { success: t("Category added"), onSuccess: () => setName("") });
-  const update = useAction(({ id, body }: { id: number; body: Record<string, unknown> }) => api.patch(`/categories/${id}`, body));
-  const remove = useAction((id: number) => api.del(`/categories/${id}`), { success: t("Category deleted") });
+  const create = useAction(() => api.post("/categories", { name: name.trim(), kind, color }), { refresh: ["finance"], success: t("Category added"), onSuccess: () => setName("") });
+  const update = useAction(({ id, body }: { id: number; body: Record<string, unknown> }) => api.patch(`/categories/${id}`, body), { refresh: ["finance"] });
+  const remove = useAction((id: number) => api.del(`/categories/${id}`), { refresh: ["finance"], success: t("Category deleted") });
   const list = categories.filter((c) => c.kind === kind);
 
   async function onDelete(c: Category) {
@@ -93,7 +93,7 @@ function CategoryManager() {
         </Select>
       } />
       <form className="flex gap-2 px-5 pb-3" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(undefined); }}>
-        <input type="color" aria-label={t("Color")} value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded-lg bg-transparent border hairline p-1" />
+        <input type="color" aria-label={t("Color")} value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 shrink-0 coarse:h-11 coarse:w-11 rounded-lg bg-transparent border hairline p-1" />
         <Input placeholder={kind === "income" ? t("New income category") : t("New expense category")} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         <Button type="submit" disabled={!name.trim()} loading={create.isPending}><Plus className="h-4 w-4" /></Button>
       </form>
@@ -119,8 +119,8 @@ export function AccountsPage() {
   const { data: accounts, isLoading } = useAccounts();
   const confirm = useConfirm();
   const [form, setForm] = useState<{ open: boolean; editing: Account | null }>({ open: false, editing: null });
-  const archive = useAction(({ id, value }: { id: number; value: boolean }) => api.patch(`/accounts/${id}`, { is_archived: value }), { success: t("Account updated") });
-  const remove = useAction((id: number) => api.del(`/accounts/${id}`), { success: t("Account deleted") });
+  const archive = useAction(({ id, value }: { id: number; value: boolean }) => api.patch(`/accounts/${id}`, { is_archived: value }), { refresh: ["finance"], success: t("Account updated") });
+  const remove = useAction((id: number) => api.del(`/accounts/${id}`), { refresh: ["finance"], success: t("Account deleted") });
 
   const active = (accounts ?? []).filter((a) => !a.is_archived);
   const archived = (accounts ?? []).filter((a) => a.is_archived);

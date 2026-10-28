@@ -1,20 +1,25 @@
+import { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format as isoFormat, parseISO, subDays } from "date-fns";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckSquare, Flame, Plus, Target } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { api } from "@/lib/api";
-import { formatMoney, monthLabel, relativeDay } from "@/lib/format";
+import { formatMoney, relativeDay, nowInAppZone } from "@/lib/format";
 import { goalArt } from "@/lib/goalArt";
 import { format, t, tp } from "@/lib/i18n";
 import { useAction } from "@/lib/queries";
 import type { AnalyticsSummary, Dashboard, Habit } from "@/lib/types";
-import { AXIS, ChartTooltip, SERIES } from "@/components/charts/ChartCard";
+import { SERIES } from "@/components/charts/ChartCard";
 import { Button, Card, CardHeader, cn, DemoBadge, EmptyState, ErrorBlock, GlassCard, LoadingBlock, MoneyText, Progress } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { InsightList } from "./InsightList";
+import { LoadErrorBoundary } from "@/components/LoadErrorBoundary";
+import { trimLeadingEmpty } from "@/lib/series";
+import { isScheduled } from "@/lib/habitSchedule";
+
+const CashFlowChart = lazy(() => import("./CashFlowChart"));
 
 function greeting(hour: number) {
   if (hour < 5) return t("Good night");
@@ -39,7 +44,7 @@ function Kpi({ label, value, sub, to, big, tone, children }: { label: string; va
 
 function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
   const days = Array.from({ length: 7 }, (_, i) => isoFormat(subDays(parseISO(today), 6 - i), "yyyy-MM-dd"));
-  const toggle = useAction(({ id, done }: { id: number; done: boolean }) => api.put(`/habits/${id}/completions`, { date: today, done }));
+  const toggle = useAction(({ id, done }: { id: number; done: boolean }) => api.put(`/habits/${id}/completions`, { date: today, done }), { refresh: ["habits"] });
   return (
     <table className="w-full border-collapse text-[13.5px]">
       <thead>
@@ -58,16 +63,22 @@ function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
               {days.map((d) => {
                 const on = done.has(d);
                 const isToday = d === today;
+                const due = isScheduled(h, d);
+                const look = cn("block h-6 w-full min-w-6 rounded-[6px] coarse:h-10",
+                  // missed (due, not done): grey; not due that day: an empty outline
+                  !on && (due ? "bg-fill/[0.09]" : "border border-dashed border-line/20"));
+                const day = format(parseISO(d), "EEEE");
                 return (
                   <td key={d} className="p-[3px]">
-                    <button
-                      disabled={!isToday || toggle.isPending}
-                      onClick={() => toggle.mutate({ id: h.id, done: !on })}
-                      aria-pressed={on}
-                      aria-label={`${h.name} ${isToday ? t("today") : format(parseISO(d), "EEEE")}${on ? t(", done") : ""}`}
-                      className={cn("block h-6 w-full min-w-[22px] rounded-[6px] transition-[background-color,transform] active:scale-90", !on && "bg-fill/[0.07]", isToday && "ring-[1.5px] ring-accent/70 cursor-pointer", !isToday && "cursor-default")}
-                      style={on ? { background: h.color } : undefined}
-                    />
+                    {isToday ? (
+                      // Only today can be checked off here; aria-pressed carries done / not done.
+                      <button disabled={toggle.isPending} onClick={() => toggle.mutate({ id: h.id, done: !on })} aria-pressed={on}
+                        aria-label={`${h.name} ${t("today")}${due ? "" : t(", not scheduled")}`}
+                        className={cn(look, "tap-target ring-2 ring-accent cursor-pointer transition-[background-color,transform] active:scale-90")}
+                        style={on ? { background: h.color } : undefined} />
+                    ) : (
+                      <span role="img" aria-label={`${h.name} ${day}: ${on ? t("done") : due ? t("missed") : t("not scheduled")}`} className={look} style={on ? { background: h.color } : undefined} />
+                    )}
                   </td>
                 );
               })}
@@ -91,7 +102,7 @@ export function OverviewPage() {
   const name = data.owner_name ? `, ${data.owner_name}` : "";
   const budgetUtil = data.budget.utilization ? Number(data.budget.utilization) : null;
   const scheduledHabits = data.habits.items.filter((h) => h.scheduled_today);
-  const flow = summary?.cash_flow.months.map((m) => ({ month: m.month, income: Number(m.income), expense: Number(m.expense) })) ?? [];
+  const flow = trimLeadingEmpty(summary?.cash_flow.months.map((m) => ({ month: m.month, income: Number(m.income), expense: Number(m.expense) })) ?? [], ["income", "expense"]);
   const hasFlow = (summary?.cash_flow.months_with_data ?? 0) > 0;
   const cash = data.accounts.totals.find((t) => t.currency === cur) ?? data.accounts.totals[0];
 
@@ -99,7 +110,7 @@ export function OverviewPage() {
     <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="show">
       <motion.div variants={rise} className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-tight">{greeting(new Date().getHours())}{name}</h2>
+          <h2 className="font-display text-[28px] font-semibold tracking-tight leading-tight">{greeting(nowInAppZone().getHours())}{name}</h2>
           <p className="mt-1 text-sm text-ink-2">
             {data.tasks.counts.today + data.tasks.counts.overdue > 0
               ? `${tp("{n} task due today", data.tasks.counts.today)}${data.tasks.counts.overdue ? `, ${tp("{n} overdue", data.tasks.counts.overdue)}` : ""}`
@@ -130,7 +141,8 @@ export function OverviewPage() {
         </GlassCard>
       </motion.div>
 
-      <div className="grid gap-4 xl:grid-cols-3 [grid-template-areas:'today'_'flow'_'att'_'up'_'habits'_'goals'] xl:[grid-template-areas:'today_flow_flow'_'today_att_up'_'habits_habits_goals']">
+      {/* items-start: each card is as tall as its content, no empty slabs beside a taller neighbour. */}
+      <div className="grid items-start gap-4 xl:grid-cols-3 [grid-template-areas:'today'_'flow'_'att'_'up'_'habits'_'goals'] xl:[grid-template-areas:'today_flow_flow'_'today_att_up'_'habits_habits_goals']">
         <motion.div variants={rise} className="[grid-area:today] min-w-0">
           <Card className="h-full">
             <CardHeader title={t("Today")} to="/tasks" subtitle={t("{n} done today", { n: data.tasks.counts.done_today })}
@@ -155,14 +167,7 @@ export function OverviewPage() {
               action={hasFlow ? <span className="flex items-center gap-3 text-xs text-ink-3"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[0] }} />{t("Income")}</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-[2px]" style={{ background: SERIES[1] }} />{t("Expenses")}</span></span> : undefined} />
             <div className="px-3 pb-3 h-[180px]">
               {!hasFlow ? <EmptyState className="py-8" title={t("No cash flow yet")} body={t("Income and expenses appear here as you record them.")} /> : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={flow} barGap={2} barCategoryGap="30%">
-                    <XAxis dataKey="month" tickFormatter={(m) => monthLabel(m, "MMM")} stroke={AXIS} tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{ fill: "rgb(var(--fill) / 0.05)" }} content={<ChartTooltip format={(v) => formatMoney(v.toFixed(2), cur)} labelFormat={(l) => monthLabel(l, "MMMM yyyy")} />} />
-                    <Bar dataKey="income" name={t("Income")} fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={22} />
-                    <Bar dataKey="expense" name={t("Expenses")} fill={SERIES[1]} radius={[4, 4, 0, 0]} maxBarSize={22} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <LoadErrorBoundary><Suspense fallback={null}><CashFlowChart flow={flow} currency={cur} /></Suspense></LoadErrorBoundary>
               )}
             </div>
             {hasFlow && <p className="px-5 pb-3 -mt-1 text-xs text-ink-3">{t("Average spending {amount} / month across months with data", { amount: summary?.cash_flow.average_monthly_expense ? formatMoney(summary.cash_flow.average_monthly_expense, cur) : "—" })}</p>}

@@ -83,6 +83,47 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class NativeSession(TimestampMixin, Base):
+    """A signed-in native app (iOS / macOS shell): bearer tokens instead of the web cookie.
+
+    Not Owned and without RLS, like `users`: a token is looked up before anyone is signed
+    in. Only SHA-256 hashes of the tokens are stored. Refresh tokens carry the session's
+    random `family` id, so presenting any already-rotated refresh token of the session is
+    recognised and revokes it (see services/native_tokens.py). Password changes and resets
+    delete the sessions.
+    """
+
+    __tablename__ = "native_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    family: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    device_name: Mapped[str] = mapped_column(String(64), default="", server_default="", nullable=False)
+    access_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    refresh_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    # The refresh hash before the last rotation, and when that happened: a client whose
+    # refresh response got lost may retry with it for a few seconds (REFRESH_RETRY_GRACE).
+    prev_refresh_hash: Mapped[str | None] = mapped_column(String(64))
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RevokedWebSession(Base):
+    """A signed web session cookie that was signed out before it expired.
+
+    Cookies are stateless (signed, see services/auth.py), so signing out records the cookie's
+    random id here until the cookie would have expired anyway. No user data, no RLS: checked
+    before anyone is signed in.
+    """
+
+    __tablename__ = "revoked_web_sessions"
+
+    token_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+
+
 class AppSettings(Owned, TimestampMixin, Base):
     """One row per user: preferences."""
 
@@ -197,7 +238,7 @@ class Transaction(Owned, TimestampMixin, Base):
         UniqueConstraint(
             "recurring_rule_id", "recurring_occurrence_date", name="uq_transactions_recurring_occurrence"
         ),
-        Index("ix_transactions_date", "date"),
+        Index("ix_transactions_user_date", "user_id", "date"),  # the transaction list: one owner, by date
         Index("ix_transactions_account_date", "account_id", "date"),
         Index("ix_transactions_to_account", "to_account_id"),
         Index("ix_transactions_category_date", "category_id", "date"),
@@ -269,8 +310,8 @@ class RecurringRule(Owned, TimestampMixin, Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     next_due_date: Mapped[date | None] = mapped_column(Date)  # NULL once the schedule has ended
     end_date: Mapped[date | None] = mapped_column(Date)
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id", ondelete="RESTRICT"), index=True, nullable=False)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"), index=True, nullable=False)
     payee: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -308,7 +349,7 @@ class InstallmentPlan(Owned, TimestampMixin, Base):
     next_payment_date: Mapped[date | None] = mapped_column(Date)
     final_payment_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(10), default="active", nullable=False)
-    default_account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
+    default_account_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), index=True)
     notes: Mapped[str | None] = mapped_column(Text)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
@@ -423,7 +464,7 @@ class Task(Owned, TimestampMixin, Base):
         # A recurring series can only have one instance per due date, so completing
         # the same instance twice can never spawn duplicate follow-ups.
         UniqueConstraint("series_id", "due_date", name="uq_tasks_series_due"),
-        Index("ix_tasks_status_due", "status", "due_date"),
+        Index("ix_tasks_user_status_due", "user_id", "status", "due_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

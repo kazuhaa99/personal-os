@@ -174,4 +174,6 @@ export const money: Dict = {
   "{n} rejected": "отклонено: {n}",
   "Rejected rows (fix and re-import)": "Отклонённые строки (исправьте и импортируйте снова)",
   "Duplicates (already recorded, will not be imported)": "Дубликаты (уже записаны, не будут импортированы)",
+  "From": "С",
+  "To": "По",
 };

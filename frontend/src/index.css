@@ -22,20 +22,22 @@
   --chrome: 246 246 249;
   --ink: 29 29 31;
   --ink-2: 66 66 72;
-  --ink-3: 104 104 112;
+  --ink-3: 84 84 92; /* 4.5:1 on the palest glass the wallpapers produce */
   --accent: 10 112 240;
   /* Wallpaper tint over chrome/hero glass; set from JS (theme.tsx), transparent by default. */
   --tint: transparent;
   --accent-ink: 255 255 255;
-  --good: 22 128 56;
+  --good: 14 96 40; /* readable on light glass too, not only on white */
   --warn: 170 98 0;
   --bad: 205 25 40;
-  --demo: 124 92 214;
+  --bad-ink: 255 255 255;
+  --demo: 86 52 176;
 
-  --panel-alpha: 0.86;
-  --chrome-alpha: 0.6;
-  --glass-top: rgb(255 255 255 / 0.72);
-  --glass-bottom: rgb(255 255 255 / 0.5);
+  --panel-alpha: 0.88;
+  --chrome-alpha: 0.88;
+  /* Opaque enough that ink-3 keeps 4.5:1 over the darkest wallpaper pixel (after the veil). */
+  --glass-top: rgb(255 255 255 / 0.82);
+  --glass-bottom: rgb(255 255 255 / 0.76);
   --glass-rim: rgb(255 255 255 / 0.9);
   --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(30 40 70 / 0.22);
   --window-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.18), 0 30px 80px -20px rgb(20 30 60 / 0.35);
@@ -61,18 +63,20 @@
   --chrome: 36 36 42;
   --ink: 245 245 247;
   --ink-2: 205 205 212;
-  --ink-3: 156 156 166;
+  --ink-3: 172 172 182;
   --accent: 64 156 255;
-  --accent-ink: 255 255 255;
+  --accent-ink: 10 10 14; /* the dark theme's light accents need dark text (white is 2.9:1) */
   --good: 64 210 100;
   --warn: 255 184 72;
   --bad: 255 110 100;
-  --demo: 180 160 255;
+  --bad-ink: 10 10 14;
+  --demo: 200 186 255;
 
-  --panel-alpha: 0.72;
-  --chrome-alpha: 0.55;
-  --glass-top: rgb(255 255 255 / 0.12);
-  --glass-bottom: rgb(255 255 255 / 0.04);
+  --panel-alpha: 0.84;
+  --chrome-alpha: 0.86;
+  /* Tinted surface rather than clear white: text stays readable over the brightest wallpaper. */
+  --glass-top: rgb(40 40 46 / 0.74);
+  --glass-bottom: rgb(30 30 35 / 0.66);
   --glass-rim: rgb(255 255 255 / 0.22);
   --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.2), 0 16px 40px -16px rgb(0 0 0 / 0.6);
   --window-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 30px 90px -20px rgb(0 0 0 / 0.75);
@@ -110,12 +114,30 @@ body {
 .tnum { font-variant-numeric: tabular-nums; }
 .hairline { border-color: rgb(var(--line) / 0.09); }
 
-*:focus-visible { outline: 3px solid rgb(var(--accent) / 0.5); outline-offset: 1px; border-radius: 6px; }
+/* A solid ring in the accent (chosen to stand 4.5:1 against the page): visible on any glass. */
+*:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; } /* follows each element's own corners */
+
+/* Fields show focus however it arrived (a click into a date field focuses its inner part, which
+   :focus-visible misses). */
+.field:focus, .field:focus-within { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+
+/* Small controls (checkboxes) keep their look but get a 44 px tap area on touch screens. */
+@media (pointer: coarse) {
+  .tap-target { position: relative; }
+  .tap-target::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+}
 
 /* Phones: keep toasts above the floating tab bar and the home indicator. */
 @media (max-width: 1023px) {
   [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(5.5rem + var(--sab)) !important; }
 }
+
+/* Native apps: the interface isn't selectable text (no selection handles or callouts when tapping
+   buttons, the tab bar or cards); fields and anything marked .selectable still are. */
+:root.native { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:root.native :is(input, textarea, [contenteditable="true"], .selectable) { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* macOS app: the window's traffic lights sit over the top-left of the header (overlay title bar). */
+:root.native-macos .app-header { padding-left: 5.5rem; }
 
 /* iOS zooms the page when a focused field's text is under 16px; keep phones at 16px. */
 @media (pointer: coarse) {

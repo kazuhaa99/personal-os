@@ -12,6 +12,7 @@ const base = `/${(process.env.E2E_BASE ?? "/").replace(/^\/+|\/+$/g, "")}/`.repl
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: ["**/.out/**"], // local audit scripts and run output
   outputDir: "e2e/.out/results",
   fullyParallel: false,
   workers: 1,

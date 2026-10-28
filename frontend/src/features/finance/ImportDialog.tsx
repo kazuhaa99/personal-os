@@ -61,7 +61,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     }
   }
 
-  const commit = useAction(() => send(false), {
+  const commit = useAction(() => send(false), { refresh: ["finance"],
     success: (r) => tp("Imported {n} transaction", (r as ImportReport).imported),
     onSuccess: (r) => setPreview(r as ImportReport),
   });

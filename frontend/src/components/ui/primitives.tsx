@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, type KeyboardEvent, useCallback, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { formatMoney, isNegative } from "@/lib/format";
@@ -19,7 +19,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-accent text-accent-ink font-medium shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.15)] hover:brightness-110 active:brightness-95",
   secondary: "bg-surface/80 text-ink border hairline shadow-[0_1px_2px_rgb(0_0_0/0.06)] hover:bg-surface active:bg-fill/[0.06]",
   ghost: "text-ink-2 hover:text-ink hover:bg-fill/[0.06] active:bg-fill/[0.1]",
-  danger: "bg-bad text-white font-medium hover:brightness-110 active:brightness-95",
+  danger: "bg-bad text-bad-ink font-medium hover:brightness-110 active:brightness-95",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -38,9 +38,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm transition-[background-color,filter,transform] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
-        size === "md" && "h-9 px-3.5",
-        size === "sm" && "h-7 px-2.5 text-xs",
-        size === "icon" && "h-8 w-8",
+        size === "md" && "h-9 px-3.5 coarse:h-11",
+        size === "sm" && "h-7 px-2.5 text-xs coarse:h-11 coarse:px-3",
+        size === "icon" && "h-8 w-8 coarse:h-11 coarse:w-11",
         VARIANTS[variant],
         className,
       )}
@@ -52,18 +52,22 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
+// Dropdown menus (Radix): the popover and its items. 44 px items on touch screens.
+export const menuContent = "mat-popover z-50 min-w-[220px] rounded-xl p-1 text-[13.5px] data-[state=open]:animate-[dlg-fade_0.14s_ease-out]";
+export const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-ink coarse:h-11";
+
 // ------------------------------------------------------------------ form controls
 
 const control =
-  "field w-full rounded-lg px-3 text-sm text-ink placeholder:text-ink-3 transition-shadow focus:outline-none focus:ring-[3px] focus:ring-accent/35 disabled:opacity-60 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-bad/60";
+  "field w-full rounded-lg px-3 text-sm text-ink placeholder:text-ink-3 transition-shadow disabled:opacity-60 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-bad/60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
-  return <input ref={ref} className={cn(control, "h-9", className)} {...rest} />;
+  return <input ref={ref} className={cn(control, "h-9 coarse:h-11", className)} {...rest} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...rest }, ref) {
   return (
-    <select ref={ref} className={cn(control, "h-9 pr-8 select-chevron", className)} {...rest}>
+    <select ref={ref} className={cn(control, "h-9 coarse:h-11 pr-8 select-chevron", className)} {...rest}>
       {children}
     </select>
   );
@@ -86,7 +90,7 @@ export function Field({ label, error, hint, children, className }: { label: stri
 
 export function Checkbox({ checked, onChange, label, className }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; className?: string }) {
   return (
-    <label className={cn("inline-flex items-center gap-2 text-sm text-ink-2 cursor-pointer select-none", className)}>
+    <label className={cn("inline-flex items-center gap-2 text-sm text-ink-2 cursor-pointer select-none coarse:min-h-11", className)}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded accent-[rgb(var(--accent))]" />
       {label}
     </label>
@@ -110,7 +114,7 @@ export function CardHeader({ title, subtitle, action, to, className }: { title: 
     <div className={cn("flex items-start justify-between gap-3 px-5 pt-4 pb-3", className)}>
       <div className="min-w-0">
         {to ? (
-          <Link to={to} className="text-[15px] font-semibold text-ink hover:text-accent transition-colors">{title}</Link>
+          <Link to={to} className="text-[15px] font-semibold text-ink hover:text-accent transition-colors coarse:inline-flex coarse:min-h-11 coarse:items-center">{title}</Link>
         ) : (
           <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         )}
@@ -166,8 +170,11 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium whitespace-nowrap", tones[tone], className)}>{children}</span>;
 }
 
-export function DemoBadge({ show }: { show: boolean }) {
-  return show ? <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge> : null;
+/** Marks demo rows. `dot`: a small dot for long lists, where a word on every row is noise. */
+export function DemoBadge({ show, dot }: { show: boolean; dot?: boolean }) {
+  if (!show) return null;
+  if (dot) return <span role="img" aria-label={t("demo")} className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-demo align-middle" />;
+  return <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge>;
 }
 
 export function EmptyState({ icon, title, body, action, className }: { icon?: ReactNode; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
@@ -202,21 +209,60 @@ export function ErrorBlock({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 // ------------------------------------------------------------------ segmented control
 
-export function Segmented<T extends string>({ value, onChange, options, className, size = "md" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md" }) {
+/** Fades the edge a horizontal scroller can still scroll towards, so cut-off content reads as "more". */
+function useScrollEdges<E extends HTMLElement>() {
+  const ref = useRef<E>(null);
+  const [fade, setFade] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.scrollLeft > 1, end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setFade((f) => (f.start === start && f.end === end ? f : { start, end }));
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    if (typeof ResizeObserver === "undefined") return; // old browsers and tests: no live updates
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    for (const child of el.children) observer.observe(child); // content can grow while the box stays at max width
+    return () => observer.disconnect();
+  }, [update]);
+  const gradient = `linear-gradient(to right, ${fade.start ? "transparent, black 24px" : "black"}, ${fade.end ? "black calc(100% - 24px), transparent" : "black"})`;
+  return { ref, update, mask: fade.start || fade.end ? { maskImage: gradient, WebkitMaskImage: gradient } : undefined };
+}
+
+/** Picks one of a few values (a view, a period, a theme): a radio group, one tab stop, arrow keys move. */
+export function Segmented<T extends string>({ value, onChange, options, className, size = "md", label }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md"; label?: string }) {
   const id = useId();
+  const edges = useScrollEdges<HTMLDivElement>();
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = options.findIndex((o) => o.value === value);
+    const next = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0, End: options.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    const index = (next + options.length) % options.length;
+    onChange(options[index].value);
+    (e.currentTarget.children[index] as HTMLElement | undefined)?.focus();
+  };
   return (
-    <div role="tablist" className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
+    <div role="radiogroup" aria-label={label} ref={edges.ref} onScroll={edges.update} onKeyDown={onKeyDown} style={edges.mask}
+      className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
       {options.map((o) => (
         <button
           key={o.value}
-          role="tab"
+          role="radio"
           type="button"
-          aria-selected={value === o.value}
+          aria-checked={value === o.value}
+          tabIndex={value === o.value ? 0 : -1}
           onClick={() => onChange(o.value)}
+          // Inside a scroller the ring is drawn inward (it would be clipped outside) and the item scrolls into view.
+          onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" })}
           className={cn(
-            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors",
-            size === "md" ? "h-8" : "h-7 text-xs px-2.5",
-            value === o.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
+            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors coarse:min-w-11 focus-visible:outline-offset-[-2px]",
+            size === "md" ? "h-8 coarse:h-11" : "h-7 text-xs px-2.5 coarse:h-11",
+            value === o.value ? "text-ink" : "text-ink-2 hover:text-ink",
           )}
         >
           {value === o.value && (
@@ -224,7 +270,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           )}
           <span className="relative">
             {o.label}
-            {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-3 tnum">{o.count}</span>}
+            {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-2 tnum">{o.count}</span>}
           </span>
         </button>
       ))}

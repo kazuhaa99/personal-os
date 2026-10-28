@@ -2,18 +2,21 @@
 
 import hashlib
 import hmac
+import logging
+import os
 import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.errors import Conflict, DomainError, ValidationFailed
-from app.models import User
+from app.models import NativeSession, RevokedWebSession, User
 from app.services import mail
 from app.services.i18n import current
 from app.tenancy import acting_as
@@ -24,6 +27,8 @@ EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
 CODE_TTL = timedelta(minutes=15)
 CODE_RESEND_AFTER = timedelta(seconds=60)
 CODE_MAX_ATTEMPTS = 5
+
+log = logging.getLogger("personal_os")
 
 _KEY_FILE = Path(__file__).resolve().parents[2] / ".secret_key"
 _key_cache: bytes | None = None
@@ -44,22 +49,50 @@ class EmailUnverified(DomainError):
     code = "email_unverified"
 
 
+_KEY_MIN_LENGTH = 32
+
+
 def _key() -> bytes:
     global _key_cache
     configured = get_settings().secret_key
     if configured:
         return configured.encode()
     if _key_cache is None:
-        try:
-            _key_cache = _KEY_FILE.read_bytes().strip()
-        except FileNotFoundError:
-            _key_cache = secrets.token_hex(32).encode()
-            try:
-                _KEY_FILE.write_bytes(_key_cache)
-                _KEY_FILE.chmod(0o600)
-            except OSError:
-                pass  # read-only filesystem: sessions last until restart; set POS_SECRET_KEY to persist
+        _key_cache = _load_or_create_key(_KEY_FILE)
     return _key_cache
+
+
+def _load_or_create_key(path: Path) -> bytes:
+    """The installation's key in `path`, created on first use. Created atomically (written to a
+    temporary file, then linked into place), so workers starting together all end up with one key."""
+    try:
+        return _checked_key(path)
+    except FileNotFoundError:
+        pass
+    key = secrets.token_hex(32).encode()
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{secrets.token_hex(4)}")
+    try:
+        tmp.write_bytes(key)
+        tmp.chmod(0o600)
+        os.link(tmp, path)
+    except FileExistsError:
+        return _checked_key(path)  # another worker was first: use its key
+    except OSError as exc:
+        log.warning("Could not save the session key to %s (%s): sessions end at every restart. "
+                    "Set POS_SECRET_KEY to keep them.", path, type(exc).__name__)
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass  # read-only filesystem: nothing was written, nothing to clean up
+    return key
+
+
+def _checked_key(path: Path) -> bytes:
+    key = path.read_bytes().strip()
+    if len(key) < _KEY_MIN_LENGTH:
+        raise RuntimeError(f"{path} holds no usable key: delete it (a new one is created) or set POS_SECRET_KEY")
+    return key
 
 
 def _sign(payload: str) -> str:
@@ -68,22 +101,32 @@ def _sign(payload: str) -> str:
 
 # ------------------------------------------------------------------ passwords
 
-_SCRYPT = {"n": 2**14, "r": 8, "p": 1}
+# OWASP's scrypt setting with half the memory per sign-in of N=2^17, p=1 (same work): 64 MiB.
+SCRYPT_COST = {"n": 2**16, "r": 8, "p": 2}
+_SCRYPT = SCRYPT_COST  # the tests swap in a cheap cost (tests/conftest.py)
+_SCRYPT_MAXMEM = 2 * 128 * 2**16 * 8  # twice what N=2^16, r=8 needs (Python's default allows 32 MiB)
 
 
-def hash_password(password: str) -> str:
+def hash_password(password: str, **params: int) -> str:
+    """scrypt$N$r$p$salt$digest. `params` override the current cost (tests of older hashes)."""
+    cost = {**_SCRYPT, **params}
     salt = secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, dklen=32, **_SCRYPT)
-    return f"scrypt${_SCRYPT['n']}${_SCRYPT['r']}${_SCRYPT['p']}${salt.hex()}${digest.hex()}"
+    digest = hashlib.scrypt(password.encode(), salt=salt, dklen=32, maxmem=_SCRYPT_MAXMEM, **cost)
+    return f"scrypt${cost['n']}${cost['r']}${cost['p']}${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, stored: str) -> bool:
     try:
         _, n, r, p, salt, digest = stored.split("$")
-        got = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32)
+        got = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32,
+                             maxmem=_SCRYPT_MAXMEM)
     except (ValueError, TypeError):
         return False
     return hmac.compare_digest(got.hex(), digest)
+
+
+def _outdated(stored: str) -> bool:
+    return not stored.startswith(f"scrypt${_SCRYPT['n']}${_SCRYPT['r']}${_SCRYPT['p']}$")
 
 
 # A real-looking hash so "unknown user" costs the same time as "wrong password".
@@ -138,12 +181,24 @@ def provision(db: Session, user: User) -> None:
         ensure_profile(db)
 
 
+def initial_admin_password() -> str:
+    """POS_AUTH_PASSWORD, or (unset) a random one written once to the server log: never a known default."""
+    s = get_settings()
+    if s.auth_password:
+        if len(s.auth_password) < 8:
+            raise RuntimeError("POS_AUTH_PASSWORD must be at least 8 characters")
+        return s.auth_password
+    password = secrets.token_urlsafe(18)
+    log.warning("Created the first account %r. Its password (change it after signing in): %s", s.auth_username, password)
+    return password
+
+
 def ensure_admin(db: Session) -> None:
     """On first start create the initial account from POS_AUTH_USERNAME / POS_AUTH_PASSWORD."""
     if first_user_id(db) is not None:
         return
     s = get_settings()
-    user = User(username=normalize_username(s.auth_username), email="", password_hash=hash_password(s.auth_password))
+    user = User(username=normalize_username(s.auth_username), email="", password_hash=hash_password(initial_admin_password()))
     db.add(user)
     db.commit()
     provision(db, user)
@@ -170,6 +225,9 @@ def authenticate(db: Session, identifier: str, password: str) -> User:
     ok = verify_password(password, user.password_hash if user else _DUMMY_HASH)
     if not user or not ok:
         raise Unauthorized("Wrong username or password")
+    if _outdated(user.password_hash):  # hashed with an older, weaker cost: upgrade it now
+        user.password_hash = hash_password(password)
+        db.commit()
     return user
 
 
@@ -177,10 +235,15 @@ def needs_verification(user: User) -> bool:
     return bool(user.email) and user.email_verified_at is None
 
 
-def set_password(db: Session, user: User, password: str) -> None:
+def set_password(db: Session, user: User, password: str, keep_native_session: int | None = None) -> None:
     validate_password(password)
     user.password_hash = hash_password(password)
     user.session_epoch += 1  # signs out every other device
+    # ... native apps included; the one making the change (if any) stays signed in.
+    stale = delete(NativeSession).where(NativeSession.user_id == user.id)
+    if keep_native_session is not None:
+        stale = stale.where(NativeSession.id != keep_native_session)
+    db.execute(stale)
     db.commit()
 
 
@@ -212,7 +275,8 @@ def create_session(user: User) -> str:
     return f"{payload}|{_sign(payload)}"
 
 
-def session_user_id(db: Session, token: str) -> int | None:
+def _session_fields(token: str) -> tuple[int, int, int, str] | None:
+    """(user id, epoch, expiry, random id) of a validly signed, unexpired cookie."""
     payload, _, sig = token.rpartition("|")
     if not payload or not hmac.compare_digest(sig, _sign(payload)):
         return None
@@ -222,10 +286,33 @@ def session_user_id(db: Session, token: str) -> int | None:
     uid, epoch, expires = int(parts[0]), int(parts[1]), int(parts[2])
     if expires < time.time():
         return None
+    return uid, epoch, expires, parts[3]
+
+
+def session_user_id(db: Session, token: str) -> int | None:
+    fields = _session_fields(token)
+    if fields is None:
+        return None
+    uid, epoch, _, token_id = fields
+    if db.get(RevokedWebSession, token_id) is not None:
+        return None
     user = db.get(User, uid)
     if user is None or user.session_epoch != epoch or needs_verification(user):
         return None
     return uid
+
+
+def revoke_session(db: Session, token: str) -> None:
+    """Sign this cookie out for good (not just in this browser); forget long-expired ones."""
+    fields = _session_fields(token)
+    if fields is None:
+        return
+    now = datetime.now(timezone.utc)
+    db.execute(delete(RevokedWebSession).where(RevokedWebSession.expires_at < now))
+    expires = datetime.fromtimestamp(fields[2], timezone.utc)
+    # ON CONFLICT: two tabs signing out with the same cookie at once both succeed.
+    db.execute(pg_insert(RevokedWebSession).values(token_id=fields[3], expires_at=expires).on_conflict_do_nothing())
+    db.commit()
 
 
 # ------------------------------------------------------------------ one-time codes
@@ -269,6 +356,8 @@ def send_code(db: Session, user: User, purpose: str) -> None:
 
 
 def check_code(db: Session, user: User, purpose: str, code: str) -> None:
+    # Lock and reload the account: parallel guesses must each see the others' wrong attempts.
+    db.refresh(user, with_for_update=True)
     target = user.pending_email if purpose == "change_email" else user.email
     now = datetime.now(timezone.utc)
     if user.code_purpose != purpose or not user.code_hash or not user.code_expires_at or user.code_expires_at < now:

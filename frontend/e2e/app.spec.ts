@@ -113,9 +113,9 @@ test("accent colour follows the wallpaper and can be switched off", async ({ pag
   const accent = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--accent"));
   await expect.poll(accent).not.toBe("");
   const fromWallpaper = await accent();
-  await page.getByRole("tab", { name: "Standard blue" }).click();
+  await page.getByRole("radio", { name: "Standard blue" }).click();
   await expect.poll(accent).toBe("");
-  await page.getByRole("tab", { name: "From wallpaper" }).click();
+  await page.getByRole("radio", { name: "From wallpaper" }).click();
   await expect.poll(accent).toBe(fromWallpaper);
   // remembered for the next visit, applied before React starts
   await page.reload();
@@ -157,4 +157,20 @@ test.describe("PWA under its own path", () => {
       expect((await page.request.get(new URL(icon.src, new URL(manifestHref!, baseURL)).href)).status()).toBe(200);
     }
   });
+});
+
+test("the web app runs under a strict Content Security Policy", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) violations.push(m.text()); });
+  await signIn(page, ADMIN.login, ADMIN.password);
+  await expect(overview(page)).toBeVisible();
+  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  expect(csp).toContain("script-src 'self';");
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toMatch(/^(light|dark)$/);
+  for (const path of ["tasks", "goals", "habits", "finances", "finances/budgets", "analytics", "settings", "profile"]) {
+    await page.goto(`./${path}`);
+    await page.waitForLoadState("networkidle");
+  }
+  expect(violations).toEqual([]);
+  await signOut(page);
 });

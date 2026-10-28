@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -32,7 +33,7 @@ from app.schemas.finance import (
     TransactionUpdate,
 )
 from app.services import accounts, budgets, categories, csv_io, installments, recurring, transactions
-from app.services.dates import parse_month, today_for
+from app.services.dates import MONTH_PATTERN, parse_month, today_for
 
 router = APIRouter()
 
@@ -129,7 +130,8 @@ def export_transactions(f: transactions.TxFilter = Depends(tx_filter), db: Sessi
 @router.post("/transactions/import", response_model=ImportReport, tags=["transactions"])
 async def import_transactions(file: UploadFile = File(...), dry_run: bool = True, db: Session = Depends(get_db)):
     content = await file.read(csv_io.MAX_BYTES + 1)
-    return csv_io.import_csv(db, csv_io.decode(content), dry_run=dry_run)
+    # Parsing and saving thousands of rows is blocking work: keep it off the event loop.
+    return await run_in_threadpool(lambda: csv_io.import_csv(db, csv_io.decode(content), dry_run=dry_run))
 
 
 @router.get("/transactions/{tx_id}", response_model=TransactionOut, tags=["transactions"])
@@ -151,7 +153,7 @@ def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/budgets", response_model=BudgetMonth, tags=["budgets"])
-def get_budgets(month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"), db: Session = Depends(get_db)):
+def get_budgets(month: str | None = Query(default=None, pattern=MONTH_PATTERN), db: Session = Depends(get_db)):
     return budgets.budget_month(db, parse_month(month) if month else today_for(db))
 
 
@@ -166,7 +168,8 @@ def set_budget(data: BudgetSet, db: Session = Depends(get_db)):
 
 @router.get("/recurring", response_model=list[RecurringOut], tags=["recurring"])
 def list_recurring(db: Session = Depends(get_db)):
-    return [recurring.serialize(db, r) for r in recurring.list_rules(db)]
+    counts = recurring.confirmed_counts(db)
+    return [recurring.serialize(db, r, confirmed=counts.get(r.id, 0)) for r in recurring.list_rules(db)]
 
 
 @router.post("/recurring", response_model=RecurringOut, status_code=201, tags=["recurring"])

@@ -197,4 +197,7 @@ export const planning: Dict = {
   "No habits yet": "Привычек пока нет",
   "Reading, practicing guitar, exercising, a consistent bedtime — start with one or two.": "Чтение, гитара, спорт, режим сна — начните с одной-двух.",
   "Create a habit": "Создать привычку",
+  "Actions for {name}": "Действия: {name}",
+  "Streak · best {n}": "Серия · лучшая {n}",
+  "Save progress": "Сохранить прогресс",
 };

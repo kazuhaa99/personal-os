@@ -31,6 +31,7 @@ export const auth: Dict = {
   "Digit {n}": "Цифра {n}",
   "Enter your username or email and password": "Введите логин или почту и пароль",
   "Confirm your email to sign in. We sent a code to {email}.": "Чтобы войти, подтвердите почту. Мы отправили код на {email}.",
+  "Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.": "Чтобы войти, подтвердите почту. Сейчас не получилось отправить код, попробуйте через несколько минут.",
   "We sent a new code.": "Мы отправили новый код.",
   "Enter your username or email": "Введите логин или почту",
   "If an account with a confirmed email exists, we sent a code to it.": "Если аккаунт с подтверждённой почтой существует, мы отправили на неё код.",

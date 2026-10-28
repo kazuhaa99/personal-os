@@ -14,8 +14,8 @@ def under_prefix(monkeypatch):
     monkeypatch.setattr(s, "auth_enabled", True)
     monkeypatch.setattr(s, "cookie_path", "/personalos/")
     monkeypatch.setattr(s, "cookie_secure", True)
-    from app.api import auth as auth_api
-    auth_api._hits.clear()
+    from app.api import throttle
+    throttle.reset()
 
 
 def _cookie(resp) -> str:
@@ -35,6 +35,6 @@ def test_logout_clears_the_cookie_on_the_same_path(client, under_prefix):
 
 def test_default_path_is_root(client, monkeypatch):
     monkeypatch.setattr(get_settings(), "auth_enabled", True)
-    from app.api import auth as auth_api
-    auth_api._hits.clear()
+    from app.api import throttle
+    throttle.reset()
     assert "Path=/;" in _cookie(client.post("/api/auth/login", json=ADMIN)) + ";"

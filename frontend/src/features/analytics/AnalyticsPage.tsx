@@ -1,27 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
-import { addMonths, startOfYear, subMonths } from "date-fns";
+import { startOfYear, subMonths } from "date-fns";
 import { BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, ComposedChart } from "recharts";
 import { api } from "@/lib/api";
 import { format, t } from "@/lib/i18n";
-import { compactMoney, fmtDate, formatMoney, monthLabel } from "@/lib/format";
+import { compactMoney, fmtDate, formatMoney, monthLabel, nowInAppZone } from "@/lib/format";
 import type { AnalyticsSummary, ExpectedPayment } from "@/lib/types";
 import { AXIS, axisProps, ChartCard, ChartTooltip, GRID, NEG, SERIES } from "@/components/charts/ChartCard";
 import { Card, CardHeader, EmptyState, ErrorBlock, Input, LoadingBlock, MetricCard, MoneyText, Segmented, Select, cn } from "@/components/ui/primitives";
+import { trimLeadingEmpty } from "@/lib/series";
 
 const M = "yyyy-MM";
 type Preset = "3m" | "6m" | "12m" | "ytd" | "custom";
 
 function rangeFor(p: Preset): [string, string] {
-  const now = new Date();
+  const now = nowInAppZone();
   if (p === "ytd") return [format(startOfYear(now), M), format(now, M)];
   const n = p === "3m" ? 3 : p === "12m" ? 12 : 6;
   return [format(subMonths(now, n - 1), M), format(now, M)];
 }
 
 const num = (s: string | null | undefined) => (s ? Number(s) : 0); // chart geometry only; displayed values use strings
+
+/** A colour key next to its name: coloured text itself would be too faint on some backgrounds. */
+function Swatch({ color }: { color: string }) {
+  return <i aria-hidden className="mr-1 inline-block h-2 w-2 rounded-[2px] align-baseline" style={{ background: color }} />;
+}
 
 export function AnalyticsPage() {
   const [preset, setPreset] = useState<Preset>("6m");
@@ -37,14 +43,14 @@ export function AnalyticsPage() {
 
   const filters = (
     <div className="flex flex-wrap items-center gap-2">
-      <Segmented value={preset} onChange={(p) => setPreset(p)} options={[
+      <Segmented label={t("Period")} value={preset} onChange={(p) => setPreset(p)} options={[
         { value: "3m", label: t("3 months") }, { value: "6m", label: t("6 months") }, { value: "12m", label: t("12 months") }, { value: "ytd", label: t("This year") }, { value: "custom", label: t("Custom") },
       ]} />
       {preset === "custom" && (
         <>
           <Input type="month" aria-label={t("From month")} className="w-[10rem]" value={custom[0]} max={custom[1]} onChange={(e) => e.target.value && setCustom([e.target.value, custom[1]])} />
           <span className="text-ink-3">–</span>
-          <Input type="month" aria-label={t("To month")} className="w-[10rem]" value={custom[1]} min={custom[0]} max={format(addMonths(new Date(), 0), M)} onChange={(e) => e.target.value && setCustom([custom[0], e.target.value])} />
+          <Input type="month" aria-label={t("To month")} className="w-[10rem]" value={custom[1]} min={custom[0]} max={format(nowInAppZone(), M)} onChange={(e) => e.target.value && setCustom([custom[0], e.target.value])} />
         </>
       )}
     </div>
@@ -59,15 +65,17 @@ export function AnalyticsPage() {
   const noData = cf.months_with_data === 0;
   const emptyChart = <EmptyState className="py-10" icon={<BarChart3 className="h-5 w-5" />} title={t("No transactions in this period")} body={<>{t("Record income and expenses, or")} <Link className="text-accent" to="/finances/transactions">{t("import a CSV")}</Link>.</>} />;
 
-  const flowRows = cf.months.map((m) => ({ month: m.month, income: num(m.income), expense: num(m.expense), net: num(m.net_cash_flow) }));
+  // Charts start at the first month with records: earlier months aren't zeros, just nothing yet.
+  const flowRows = trimLeadingEmpty(cf.months.map((m) => ({ month: m.month, income: num(m.income), expense: num(m.expense), net: num(m.net_cash_flow) })), ["income", "expense"]);
+  const firstMonth = flowRows[0]?.month ?? "9999-12";
   const trendSeries = data.trend.series;
-  const trendRows = data.trend.months.map((m) => {
+  const trendRows = data.trend.months.filter((m) => m.month >= firstMonth).map((m) => {
     const total = cf.months.find((x) => x.month === m.month)?.expense;
     return { month: m.month as string, value: trendKey === "total" ? num(total) : num(m[trendKey]) };
   });
   const trendSeriesName = trendSeries.find((s) => s.key === trendKey)?.name;
   const trendName = trendKey === "total" ? t("All expenses") : trendSeriesName ? t(trendSeriesName) : "";
-  const balRows = data.balances.points.map((p) => ({ month: p.month, total: num(p.total_balance), savings: num(p.savings_balance) }));
+  const balRows = trimLeadingEmpty(data.balances.points.map((p) => ({ month: p.month, total: num(p.total_balance), savings: num(p.savings_balance) })), ["total", "savings"]);
   const hasSavings = data.balances.points.some((p) => num(p.savings_balance) !== 0);
   const budgetRows = data.budget_performance.months.filter((m) => m.limit !== null).map((m) => ({ month: m.month, spent: num(m.spent), limit: num(m.limit), over: m.over_count }));
   const installments = expected.filter((e) => e.kind === "installment");
@@ -107,7 +115,7 @@ export function AnalyticsPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title={t("Net cash flow")} subtitle={<>{t("Income − expenses per month.")} <span style={{ color: SERIES[0] }}>{t("Blue")}</span> = {t("kept")}, <span style={{ color: NEG }}>{t("red")}</span> = {t("overspent")}.</>}
+        <ChartCard title={t("Net cash flow")} subtitle={<>{t("Income − expenses per month.")} <Swatch color={SERIES[0]} />{t("Blue")} = {t("kept")}, <Swatch color={NEG} />{t("red")} = {t("overspent")}.</>}
           table={{ columns: [t("Month"), t("Net cash flow"), t("Share of income kept")], rows: cf.months.map((m) => [monthLabel(m.month), formatMoney(m.net_cash_flow, cur, { sign: true }), m.savings_rate ? `${m.savings_rate}%` : "—"]) }}
           empty={noData ? emptyChart : undefined}>
           <ResponsiveContainer width="100%" height={240}>

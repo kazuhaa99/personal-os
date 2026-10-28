@@ -2,6 +2,8 @@ import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { ArrowLeft, ArrowRight, AtSign, Eye, EyeOff, KeyRound, Lock, Mail, User } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, errorMessage } from "@/lib/api";
+import { signIn } from "@/lib/nativeSession";
+import { IS_NATIVE } from "@/platform";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import type { AuthUser } from "@/lib/types";
@@ -14,6 +16,16 @@ type View =
   | { name: "verify"; identifier: string; email: string }
   | { name: "forgot" }
   | { name: "reset"; identifier: string };
+
+/** Web: the session cookie. Native apps: bearer tokens kept in the keychain (lib/nativeSession). */
+async function passwordSignIn(identifier: string, password: string): Promise<AuthUser> {
+  if (IS_NATIVE) return signIn(identifier, password);
+  return (await api.post<{ user: AuthUser }>("/auth/login", { identifier, password })).user;
+}
+
+/** Confirming an email or resetting a password signs the web in by cookie; native apps get their tokens too. */
+const afterCodeSignIn = (user: AuthUser, identifier: string, password: string): Promise<AuthUser> =>
+  IS_NATIVE ? signIn(identifier, password) : Promise.resolve(user);
 
 /** Server error codes → translated messages (fallback: the server's English message). */
 function explain(err: unknown): string {
@@ -54,14 +66,15 @@ function Clock({ compact }: { compact: boolean }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 10_000); return () => clearInterval(id); }, []);
   return (
-    <motion.div layout className="text-center text-white [text-shadow:0_1px_12px_rgb(0_0_0/0.25)] select-none">
+    // A frosted plate behind the clock, as on a lock screen: white text stays readable on any photo.
+    <motion.div layout className="rounded-[28px] bg-black/60 px-7 py-3 text-center text-white backdrop-blur-md select-none">
       <p className="text-[15px] font-medium opacity-90 first-letter:uppercase">{format(now, t("EEEE, d MMMM"))}</p>
       <motion.p layout className={cn("font-display leading-none font-semibold tracking-tight tnum mt-1", compact ? "text-[56px]" : "text-[76px] sm:text-[96px]")}>{format(now, "HH:mm")}</motion.p>
     </motion.div>
   );
 }
 
-const fieldWrap = "field flex items-center gap-2.5 h-11 rounded-xl px-3.5 focus-within:ring-2 focus-within:ring-accent/50 transition-shadow";
+const fieldWrap = "field flex items-center gap-2.5 h-11 rounded-xl px-3.5"; // .field shows the focus ring
 const inputCls = "min-w-0 flex-1 bg-transparent text-[15px] outline-none focus-visible:outline-none placeholder:text-ink-3";
 
 function TextField({ icon, label, ...rest }: { icon: ReactNode; label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -129,7 +142,7 @@ function CodeInput({ value, onChange, onComplete, disabled }: { value: string; o
             if (e.key === "ArrowRight" && i < 5) refs.current[i + 1]?.focus();
           }}
           onPaste={(e) => { e.preventDefault(); set(e.clipboardData.getData("text")); }}
-          className="field h-12 w-11 rounded-xl text-center text-xl font-semibold tnum outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/50" />
+          className="field h-12 w-11 rounded-xl text-center text-xl font-semibold tnum" />
       ))}
     </div>
   );
@@ -155,7 +168,7 @@ function Header({ icon, title, subtitle }: { icon?: ReactNode; title: string; su
   );
 }
 
-const linkBtn = "text-[13px] font-medium text-accent hover:underline underline-offset-2";
+const linkBtn = "text-[13px] font-medium text-ink underline decoration-ink/30 underline-offset-2 hover:decoration-ink";
 
 export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user: AuthUser) => void; registrationOpen: boolean }) {
   const { lang, setLang } = useLang();
@@ -186,13 +199,15 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     if (!identifier.trim() || !password) return fail(new Error(t("Enter your username or email and password")));
     run(async () => {
       try {
-        const r = await api.post<{ user: AuthUser }>("/auth/login", { identifier: identifier.trim(), password });
-        onSignedIn(r.user);
+        onSignedIn(await passwordSignIn(identifier.trim(), password));
       } catch (err) {
         if (err instanceof ApiError && err.code === "email_unverified") {
-          const addr = (err.details as { email?: string } | undefined)?.email ?? "";
+          const details = err.details as { email?: string; code_sent?: boolean } | undefined;
+          const addr = details?.email ?? "";
           go({ name: "verify", identifier: identifier.trim(), email: addr });
-          setNotice(t("Confirm your email to sign in. We sent a code to {email}.", { email: addr }));
+          setNotice(details?.code_sent === false
+            ? t("Confirm your email to sign in. We couldn't send a code right now, try again in a few minutes.")
+            : t("Confirm your email to sign in. We sent a code to {email}.", { email: addr }));
           return;
         }
         setPassword("");
@@ -215,7 +230,7 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     run(async () => {
       try {
         const r = await api.post<{ user: AuthUser }>("/auth/verify-email", { identifier: view.identifier, code: value });
-        onSignedIn(r.user);
+        onSignedIn(await afterCodeSignIn(r.user, view.identifier, password));
       } catch (err) { setCode(""); throw err; }
     });
   };
@@ -244,13 +259,13 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
     if (password.length < 8) return fail(new Error(t("Password must be at least 8 characters")));
     run(async () => {
       const r = await api.post<{ user: AuthUser }>("/auth/password/reset", { identifier: view.identifier, code, password });
-      onSignedIn(r.user);
+      onSignedIn(await afterCodeSignIn(r.user, view.identifier, password));
     });
   };
 
   const footer = view.name === "login"
-    ? registrationOpen && <p className="text-[13px] text-white/90 [text-shadow:0_1px_6px_rgb(0_0_0/0.35)]">{t("No account yet?")} <button className="font-semibold text-white underline-offset-2 hover:underline" onClick={() => { setPassword(""); go({ name: "register" }); }}>{t("Create one")}</button></p>
-    : <button className="inline-flex items-center gap-1 text-[13px] font-medium text-white/90 [text-shadow:0_1px_6px_rgb(0_0_0/0.35)] hover:text-white" onClick={() => { setPassword(""); go({ name: "login" }); }}><ArrowLeft className="h-3.5 w-3.5" /> {t("Back to sign in")}</button>;
+    ? registrationOpen && <p className="text-[13px] text-white">{t("No account yet?")} <button className="font-semibold text-white underline-offset-2 hover:underline" onClick={() => { setPassword(""); go({ name: "register" }); }}>{t("Create one")}</button></p>
+    : <button className="inline-flex items-center gap-1 text-[13px] font-medium text-white" onClick={() => { setPassword(""); go({ name: "login" }); }}><ArrowLeft className="h-3.5 w-3.5" /> {t("Back to sign in")}</button>;
 
   return (
     <div className="fixed inset-0 overflow-y-auto">
@@ -331,12 +346,12 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
             </AnimatePresence>
           </motion.div>
 
-          <div className="mt-5 flex flex-col items-center gap-3">
+          <div className="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-black/60 px-4 py-3 backdrop-blur-md">
             {footer}
             <div className="flex justify-center gap-1" role="radiogroup" aria-label={t("Language")}>
               {LANGUAGES.map((l) => (
                 <button key={l.id} role="radio" aria-checked={lang === l.id} onClick={() => setLang(l.id)}
-                  className={cn("rounded-full px-3 py-1 text-[13px] text-white/85 transition-colors hover:bg-white/15 [text-shadow:0_1px_6px_rgb(0_0_0/0.3)]", lang === l.id && "bg-white/20 text-white font-medium backdrop-blur-md")}>
+                  className={cn("rounded-full px-3 py-1 text-[13px] text-white transition-colors hover:bg-white/15", lang === l.id && "bg-white/20 font-medium")}>
                   {l.label}
                 </button>
               ))}

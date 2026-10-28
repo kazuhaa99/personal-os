@@ -19,17 +19,25 @@ class Settings(BaseSettings):
     app_db_role: str = "personal_os_app"
     # Comma-separated list of allowed browser origins. Never "*".
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Origins of the native shells' WebViews (Capacitor on iOS, Tauri on macOS); they sign in
+    # with bearer tokens, never the cookie. Also comma-separated, also never "*".
+    native_origins: str = "capacitor://localhost,tauri://localhost"
+    # Native sign-in: a short-lived access token plus a rotating refresh token.
+    native_access_minutes: int = 15
+    native_refresh_days: int = 60
+    # Hard cap on a native session's age, however often it refreshes: then sign in again.
+    native_session_max_days: int = 180
     # Optional shared secret. When set, every /api request must send
     # "Authorization: Bearer <token>". Strongly recommended if the API is reachable
     # from anything other than localhost.
     api_token: str | None = Field(default=None, repr=False)
-    # The first account, created on first start when no users exist yet.
-    # Change the password (POS_AUTH_PASSWORD, or in the app) before exposing the app.
+    # The first account, created on first start when no users exist yet. Without
+    # POS_AUTH_PASSWORD it gets a random password, written once to the server log.
     auth_enabled: bool = True
     # Anyone who can reach the app may create an account (each sees only their own data).
     allow_registration: bool = True
     auth_username: str = "admin"
-    auth_password: str = Field(default="adminuser123", repr=False)
+    auth_password: str | None = Field(default=None, repr=False)
     # Signs session cookies. If unset, a random key is generated and kept in
     # backend/.secret_key so sessions survive restarts.
     secret_key: str | None = Field(default=None, repr=False)
@@ -54,7 +62,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip() and o.strip() != "*"]
+        origins = f"{self.cors_origins},{self.native_origins}".split(",")
+        return list(dict.fromkeys(o.strip() for o in origins if o.strip() and o.strip() != "*"))
 
 
 @lru_cache

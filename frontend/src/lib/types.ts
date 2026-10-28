@@ -33,15 +33,12 @@ export interface Category {
 
 export interface Ref { id: number; name: string; currency?: string; color?: string }
 
-export interface Transaction {
+interface TransactionBase {
   id: number;
-  type: TxType;
   amount: Money;
   currency: string;
   date: ISODate;
   account: Ref;
-  to_account: Ref | null;
-  category: Ref | null;
   description: string;
   payee: string | null;
   tags: string[];
@@ -50,6 +47,11 @@ export interface Transaction {
   is_demo: boolean;
   created_at: string;
 }
+
+/** A transfer moves money between two accounts and has no category; income and expenses have no destination. */
+export type Transaction =
+  | (TransactionBase & { type: "transfer"; to_account: Ref; category: null })
+  | (TransactionBase & { type: "income" | "expense"; to_account: null; category: Ref | null });
 
 export interface TxTotals { currency: string; income: Money; expense: Money; net: Money; transfers: Money }
 export interface TxPage { items: Transaction[]; total: number; limit: number; offset: number; totals: TxTotals[] }

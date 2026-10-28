@@ -8,15 +8,17 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { api } from "@/lib/api";
-import { formatMoney } from "@/lib/format";
+import { resolveApiUrl } from "@/lib/base";
+import { formatMoney, hasAppTimeZone, nowInAppZone } from "@/lib/format";
 import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
-import { useAccounts } from "@/lib/queries";
+import { useAccounts, useSettings } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
 import type { Dashboard, Profile } from "@/lib/types";
-import { Button, cn } from "@/components/ui/primitives";
+import { Button, cn, menuContent, menuItem, Spinner } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
 import { useQuickActions } from "./QuickActions";
+import { useMacShortcuts } from "@/platform/shortcuts";
 
 // Labels stay in English here and are translated at render time (t() must not run at import).
 type NavItem = { to: string; label: string; short?: string; icon: typeof LayoutDashboard; end?: boolean; badge?: (d?: Dashboard) => ReactNode };
@@ -85,7 +87,7 @@ function SideLink({ item, data, onNavigate }: { item: NavItem; data?: Dashboard;
           {isActive && <motion.span layoutId="side-active" className="absolute inset-0 rounded-[8px] bg-fill/[0.09] shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4)]" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}
           <Icon className="relative h-[17px] w-[17px] text-accent" strokeWidth={1.8} />
           <span className="relative flex-1 truncate">{t(label)}</span>
-          {b !== null && b !== undefined && <span className="relative text-xs text-ink-3 tnum">{b}</span>}
+          {b !== null && b !== undefined && <span className="relative text-xs text-ink-2 tnum">{b}</span>}
         </>
       )}
     </NavLink>
@@ -100,7 +102,7 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
   return (
     <div className="flex h-full flex-col px-2.5 pb-3">
       <div className="flex h-14 items-center gap-2.5 px-2">
-        <div className="h-7 w-7 rounded-[8px] grid place-items-center text-accent-ink text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(var(--accent)/0.35)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>
+        <div aria-hidden className="h-7 w-7 rounded-[8px] grid place-items-center text-accent-ink text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(var(--accent)/0.35)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>
         <span className="flex-1 text-[15px] font-semibold tracking-tight">Personal OS</span>
         {onCollapse && <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t("Hide sidebar")} onClick={onCollapse}><PanelLeftClose className="h-4 w-4" /></Button>}
       </div>
@@ -132,6 +134,7 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
           </Link>
         )}
         <SideLink item={{ to: "/settings", label: "Settings", icon: Settings }} onNavigate={onNavigate} />
+        {onNavigate && <div className="flex gap-1 px-1 md:hidden"><LanguageMenu /><ThemeMenu /></div>}
         <ProfileChip onNavigate={onNavigate} />
       </div>
     </div>
@@ -143,7 +146,7 @@ export function Avatar({ src, name, className }: { src?: string | null; name: st
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
   return src
     ? <img src={src} alt="" className={cn("rounded-full object-cover ring-1 ring-line/10", className)} />
-    : <span className={cn("grid place-items-center rounded-full text-accent-ink font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 65%, #7b8cff), rgb(var(--accent)))" }}>{initials}</span>;
+    : <span aria-hidden className={cn("grid place-items-center rounded-full text-accent-ink font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 65%, #7b8cff), rgb(var(--accent)))" }}>{initials}</span>;
 }
 
 function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
@@ -153,10 +156,10 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex items-center gap-1 rounded-[10px] hover:bg-fill/[0.05] transition-colors">
       <NavLink to="/profile" onClick={onNavigate} className={({ isActive }) => cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2 py-1.5", isActive && "bg-fill/[0.09]")}>
-        <Avatar src={profile?.avatar_url} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
+        <Avatar src={resolveApiUrl(profile?.avatar_url)} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[13.5px] font-medium">{full || username}</span>
-          <span className="block truncate text-xs text-ink-3">{username ? `@${username}` : t("Profile")}</span>
+          <span className="block truncate text-xs text-ink-2">{username ? `@${username}` : t("Profile")}</span>
         </span>
       </NavLink>
       <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={t("Sign out")} title={t("Sign out")} onClick={() => void logout()}>
@@ -168,8 +171,6 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
 
 // ---------------------------------------------------------------- toolbar menus
 
-const menuContent = "mat-popover z-50 min-w-[220px] rounded-xl p-1 text-[13.5px] data-[state=open]:animate-[dlg-fade_0.14s_ease-out]";
-const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-white";
 
 function ThemeMenu() {
   const { mode, setMode, resolved } = useTheme();
@@ -217,12 +218,12 @@ function NewMenu() {
   const navigate = useNavigate();
   return (
     <div className="flex">
-      <Button variant="primary" size="sm" className="h-8 rounded-r-none px-3" onClick={() => qa.newTransaction()}>
+      <Button variant="primary" size="sm" className="h-8 rounded-r-none px-3 coarse:min-w-11" onClick={() => qa.newTransaction()}>
         <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t("New Transaction")}</span>
       </Button>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5" aria-label={t("More create options")}><ChevronDown className="h-4 w-4" /></Button>
+          <Button variant="primary" size="sm" className="h-8 rounded-l-none border-l border-white/25 px-1.5 coarse:w-11" aria-label={t("More create options")}><ChevronDown className="h-4 w-4" /></Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="end" sideOffset={8} className={menuContent}>
@@ -247,6 +248,10 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("pos.sidebar") === "collapsed"; } catch { return false; } });
   const [palette, setPalette] = useState(false);
   useEffect(() => setMobileOpen(false), [location.pathname]);
+  // Loading the settings sets the app's timezone ("today" everywhere). On a device that doesn't
+  // know it yet, wait for it so no page counts days in the device's zone.
+  const settings = useSettings();
+  const waitForZone = !hasAppTimeZone() && settings.isPending;
   useEffect(() => { try { localStorage.setItem("pos.sidebar", collapsed ? "collapsed" : "open"); } catch { /* ignore */ } }, [collapsed]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -255,9 +260,12 @@ export function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  const quick = useQuickActions();
+  const navigate = useNavigate();
+  useMacShortcuts({ newItem: () => quick.newTransaction(), search: () => setPalette(true), settings: () => navigate("/settings") });
 
   const [title, subtitle] = (() => {
-    if (location.pathname === "/") return [t("Overview"), format(new Date(), "PPPP")];
+    if (location.pathname === "/") return [t("Overview"), format(nowInAppZone(), "PPPP")];
     const hit = TITLES.find(([p]) => location.pathname.startsWith(p));
     return hit ? [t(hit[1]), t(hit[2])] : ["Personal OS", ""];
   })();
@@ -276,15 +284,16 @@ export function AppShell() {
           )}
         </AnimatePresence>
 
-        <div className="relative flex-1 min-w-0 flex flex-col bg-surface/55 backdrop-blur-2xl">
-          <header className="flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
+        <div className="relative flex-1 min-w-0 flex flex-col bg-surface/[0.78] backdrop-blur-2xl">
+          <header data-tauri-drag-region className="app-header flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t("Open menu")} onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
             {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={t("Show sidebar")} onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
             <div className="min-w-0 flex-1 pl-1">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div key={title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}>
                   <h1 className="text-[15px] font-semibold leading-5 truncate">{title}</h1>
-                  <p className="text-xs text-ink-3 truncate tnum">{subtitle}</p>
+                  {/* Long languages need two short lines on a phone rather than a cut-off one. */}
+                  <p className="text-xs leading-[0.875rem] text-ink-3 tnum line-clamp-2 sm:truncate sm:leading-4">{subtitle}</p>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -293,20 +302,20 @@ export function AppShell() {
               <kbd className="inline-flex items-center gap-0.5 rounded bg-surface px-1.5 py-0.5 text-[11px] border hairline"><Command className="h-3 w-3" />K</kbd>
             </button>
             <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("Search")} onClick={() => setPalette(true)}><Search className="h-4 w-4" /></Button>
-            <LanguageMenu />
-            <ThemeMenu />
+            {/* On phones these two live in the menu, leaving the header room for its title. */}
+            <div className="hidden md:contents"><LanguageMenu /><ThemeMenu /></div>
             <NewMenu />
           </header>
 
           <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div key={location.pathname}
-                initial={{ opacity: 0, y: 10, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-                transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
-                {outlet}
-              </motion.div>
-            </AnimatePresence>
+            {/* The next page shows at once (no waiting for the old one to leave) and only fades in:
+                a blur filter over a whole page is costly to paint. */}
+            <motion.div key={location.pathname}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto w-full max-w-[1680px] pl-[max(1rem,var(--sal))] pr-[max(1rem,var(--sar))] py-5 lg:px-6 lg:py-6 pb-[calc(7rem+var(--sab))] lg:pb-8">
+              {waitForZone ? <div className="grid place-items-center py-24"><Spinner /></div> : outlet}
+            </motion.div>
           </main>
         </div>
       </div>
@@ -328,9 +337,8 @@ export function AppShell() {
       {/* Mobile tab bar: floating glass */}
       <nav className="lg:hidden fixed bottom-[max(0.75rem,var(--sab))] left-[max(0.75rem,var(--sal))] right-[max(0.75rem,var(--sar))] z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label={t("Primary")}>
         {([PERSONAL[0], PERSONAL[1], { to: "/finances/transactions", label: "Money", icon: ArrowLeftRight }, PERSONAL[3], { to: "/analytics", label: "Analytics", icon: BarChart3 }] as NavItem[]).map(({ to, label, short, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-accent bg-fill/[0.06]" : "text-ink-2")}>
-            <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
-            {t(short ?? label)}
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-ink font-medium bg-fill/[0.06]" : "text-ink-2")}>
+            {({ isActive }) => <><Icon className={cn("h-[18px] w-[18px]", isActive && "text-accent")} strokeWidth={1.8} />{t(short ?? label)}</>}
           </NavLink>
         ))}
       </nav>
