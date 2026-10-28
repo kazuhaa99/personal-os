@@ -105,6 +105,7 @@ export const shell: Dict = {
   "7 days": "7일",
   "today": "오늘",
   ", done": ", 완료",
+  ", not scheduled": ", 예정 없음",
   "Available in active accounts": "활성 계좌 사용 가능 금액",
   "not net worth": "순자산 아님",
   "Sum of balances · not net worth": "잔액 합계 · 순자산 아님",

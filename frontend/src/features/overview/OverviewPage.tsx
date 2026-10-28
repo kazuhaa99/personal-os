@@ -16,6 +16,8 @@ import { useQuickActions } from "@/components/layout/QuickActions";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { InsightList } from "./InsightList";
 import { LoadErrorBoundary } from "@/components/LoadErrorBoundary";
+import { trimLeadingEmpty } from "@/lib/series";
+import { isScheduled } from "@/lib/habitSchedule";
 
 const CashFlowChart = lazy(() => import("./CashFlowChart"));
 
@@ -61,14 +63,18 @@ function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
               {days.map((d) => {
                 const on = done.has(d);
                 const isToday = d === today;
+                const due = isScheduled(h, d);
                 return (
                   <td key={d} className="p-[3px]">
                     <button
                       disabled={!isToday || toggle.isPending}
                       onClick={() => toggle.mutate({ id: h.id, done: !on })}
                       aria-pressed={on}
-                      aria-label={`${h.name} ${isToday ? t("today") : format(parseISO(d), "EEEE")}${on ? t(", done") : ""}`}
-                      className={cn("block h-6 w-full min-w-[22px] rounded-[6px] transition-[background-color,transform] active:scale-90", !on && "bg-fill/[0.07]", isToday && "ring-[1.5px] ring-accent/70 cursor-pointer", !isToday && "cursor-default")}
+                      aria-label={`${h.name} ${isToday ? t("today") : format(parseISO(d), "EEEE")}${on ? t(", done") : due ? "" : t(", not scheduled")}`}
+                      className={cn("block h-6 w-full min-w-[22px] rounded-[6px] transition-[background-color,transform] active:scale-90 coarse:h-10",
+                        // missed (due, not done): grey; not due that day: an empty outline
+                        !on && (due ? "bg-fill/[0.09]" : "border border-dashed border-line/20"),
+                        isToday && "tap-target ring-2 ring-accent cursor-pointer", !isToday && "cursor-default")}
                       style={on ? { background: h.color } : undefined}
                     />
                   </td>
@@ -94,7 +100,7 @@ export function OverviewPage() {
   const name = data.owner_name ? `, ${data.owner_name}` : "";
   const budgetUtil = data.budget.utilization ? Number(data.budget.utilization) : null;
   const scheduledHabits = data.habits.items.filter((h) => h.scheduled_today);
-  const flow = summary?.cash_flow.months.map((m) => ({ month: m.month, income: Number(m.income), expense: Number(m.expense) })) ?? [];
+  const flow = trimLeadingEmpty(summary?.cash_flow.months.map((m) => ({ month: m.month, income: Number(m.income), expense: Number(m.expense) })) ?? [], ["income", "expense"]);
   const hasFlow = (summary?.cash_flow.months_with_data ?? 0) > 0;
   const cash = data.accounts.totals.find((t) => t.currency === cur) ?? data.accounts.totals[0];
 
@@ -133,7 +139,8 @@ export function OverviewPage() {
         </GlassCard>
       </motion.div>
 
-      <div className="grid gap-4 xl:grid-cols-3 [grid-template-areas:'today'_'flow'_'att'_'up'_'habits'_'goals'] xl:[grid-template-areas:'today_flow_flow'_'today_att_up'_'habits_habits_goals']">
+      {/* items-start: each card is as tall as its content, no empty slabs beside a taller neighbour. */}
+      <div className="grid items-start gap-4 xl:grid-cols-3 [grid-template-areas:'today'_'flow'_'att'_'up'_'habits'_'goals'] xl:[grid-template-areas:'today_flow_flow'_'today_att_up'_'habits_habits_goals']">
         <motion.div variants={rise} className="[grid-area:today] min-w-0">
           <Card className="h-full">
             <CardHeader title={t("Today")} to="/tasks" subtitle={t("{n} done today", { n: data.tasks.counts.done_today })}

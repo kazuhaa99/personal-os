@@ -105,6 +105,7 @@ export const shell: Dict = {
   "7 days": "7 дней",
   "today": "сегодня",
   ", done": ", выполнено",
+  ", not scheduled": ", не запланировано",
   "Available in active accounts": "Доступно на активных счетах",
   "not net worth": "не чистый капитал",
   "Sum of balances · not net worth": "Сумма балансов · не чистый капитал",
