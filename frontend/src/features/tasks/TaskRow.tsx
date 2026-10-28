@@ -46,18 +46,21 @@ export function TaskRow({ task, today, compact }: { task: Task; today: string; c
   const qa = useQuickActions();
   const done = task.status === "done";
   return (
-    <div className={cn("group flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-fill/[0.03]", compact && "py-2")}>
+    // On touch screens a row is at least 44 px and the title fills it, so rows are easy to tap apart.
+    <div className={cn("group flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-fill/[0.03] coarse:items-center coarse:py-0 coarse:min-h-11", compact && "py-2")}>
       <TaskCheck task={task} />
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => qa.editTask(task)}>
+      <button type="button" className="min-w-0 flex-1 text-left coarse:self-stretch coarse:py-1.5" onClick={() => qa.editTask(task)}>
         <p className={cn("text-sm leading-5 truncate", done && "line-through text-ink-3")}>
           {task.title}
           <DemoBadge show={task.is_demo} />
         </p>
         {!compact && task.description && <p className="text-xs text-ink-3 truncate mt-0.5">{task.description}</p>}
+        {/* Narrow screens: the category goes under the title instead of squeezing it. */}
+        {task.category && !compact && <p className="mt-0.5 text-xs text-ink-3 truncate sm:hidden">#{task.category}</p>}
       </button>
       <div className="flex items-center gap-2 shrink-0 text-xs">
         {task.recurrence !== "none" && <Repeat className="h-3.5 w-3.5 text-ink-3" aria-label={t("Repeats: {rule}", { rule: t(RECURRENCE_NAME[task.recurrence]) })} />}
-        {task.category && !compact && <Badge>{task.category}</Badge>}
+        {task.category && !compact && <Badge className="hidden sm:inline-flex">{task.category}</Badge>}
         {task.due_date && (
           <span className={cn("tnum", task.overdue ? "text-bad" : "text-ink-3")}>
             {relativeDay(task.due_date, today)}{task.due_time ? ` ${task.due_time.slice(0, 5)}` : ""}

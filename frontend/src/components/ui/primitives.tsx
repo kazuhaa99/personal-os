@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useCallback, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { formatMoney, isNegative } from "@/lib/format";
@@ -51,6 +51,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   );
 });
+
+// Dropdown menus (Radix): the popover and its items. 44 px items on touch screens.
+export const menuContent = "mat-popover z-50 min-w-[220px] rounded-xl p-1 text-[13.5px] data-[state=open]:animate-[dlg-fade_0.14s_ease-out]";
+export const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-ink coarse:h-11";
 
 // ------------------------------------------------------------------ form controls
 
@@ -202,10 +206,35 @@ export function ErrorBlock({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 // ------------------------------------------------------------------ segmented control
 
+/** Fades the edge a horizontal scroller can still scroll towards, so cut-off content reads as "more". */
+function useScrollEdges<E extends HTMLElement>() {
+  const ref = useRef<E>(null);
+  const [fade, setFade] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.scrollLeft > 1, end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setFade((f) => (f.start === start && f.end === end ? f : { start, end }));
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    if (typeof ResizeObserver === "undefined") return; // old browsers and tests: no live updates
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [update]);
+  const gradient = `linear-gradient(to right, ${fade.start ? "transparent, black 24px" : "black"}, ${fade.end ? "black calc(100% - 24px), transparent" : "black"})`;
+  return { ref, update, mask: fade.start || fade.end ? { maskImage: gradient, WebkitMaskImage: gradient } : undefined };
+}
+
 export function Segmented<T extends string>({ value, onChange, options, className, size = "md" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md" }) {
   const id = useId();
+  const edges = useScrollEdges<HTMLDivElement>();
   return (
-    <div role="tablist" className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
+    <div role="tablist" ref={edges.ref} onScroll={edges.update} style={edges.mask}
+      className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
       {options.map((o) => (
         <button
           key={o.value}
