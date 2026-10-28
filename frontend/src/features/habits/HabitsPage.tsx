@@ -43,7 +43,7 @@ function HabitForm({ open, onOpenChange, editing }: { open: boolean; onOpenChang
       <Field label={t("Name")} error={error}>{(id) => <Input id={id} autoFocus value={name} maxLength={80} placeholder={t("e.g. Practice guitar 20 min")} onChange={(e) => setName(e.target.value)} />}</Field>
       <div className="space-y-2">
         <p className="text-xs font-medium text-ink-2">{t("Schedule")}</p>
-        <Segmented value={schedule} onChange={setSchedule} options={[{ value: "daily", label: t("Every day") }, { value: "weekdays", label: t("Specific days") }]} />
+        <Segmented label={t("Repeat")} value={schedule} onChange={setSchedule} options={[{ value: "daily", label: t("Every day") }, { value: "weekdays", label: t("Specific days") }]} />
         {schedule === "weekdays" && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {weekdayNames().map((d, i) => (
@@ -74,7 +74,9 @@ function Heatmap({ habit, today }: { habit: Habit; today: string }) {
   const weeks: Date[][] = [];
   for (let d = start; d <= end; d = addDays(d, 7)) weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
   // A month's name above the first week that starts in it.
-  const months = weeks.flatMap((w, wi) => (wi === 0 || w[0].getMonth() !== weeks[wi - 1][0].getMonth() ? [{ wi, label: format(w[0], "LLL") }] : []));
+  // A month's name above the first week that starts in it; skipped when the next label is too close to fit.
+  const starts = weeks.flatMap((w, wi) => (wi === 0 || w[0].getMonth() !== weeks[wi - 1][0].getMonth() ? [{ wi, label: format(w[0], "LLL") }] : []));
+  const months = starts.filter((m, k) => !starts[k + 1] || starts[k + 1].wi - m.wi >= 3);
   return (
     <div className="overflow-x-auto pb-1" role="img" aria-label={tp("{name}: {n} completions in the last 26 weeks", habit.completions.length, { name: habit.name })}>
       <div className="relative h-4 text-2xs text-ink-3" aria-hidden style={{ width: weeks.length * CELL }}>
@@ -139,7 +141,7 @@ function HabitCard({ habit, today, onEdit }: { habit: Habit; today: string; onEd
           const isDone = doneSet.has(iso);
           const beforeStart = iso < habit.start_date;
           return (
-            <button key={iso} type="button" disabled={beforeStart || toggle.isPending} aria-pressed={isDone} aria-label={isDone ? t("{date}, done", { date: format(d, t("EEEE, d MMM")) }) : format(d, t("EEEE, d MMM"))}
+            <button key={iso} type="button" disabled={beforeStart || toggle.isPending} aria-pressed={isDone} aria-label={sched ? format(d, t("EEEE, d MMM")) : `${format(d, t("EEEE, d MMM"))}${t(", not scheduled")}`}
               onClick={() => toggle.mutate({ date: iso, done: !isDone })}
               className="group/day min-w-0 flex-1 p-[3px] disabled:opacity-30">
               <span className={cn("block rounded-lg border py-1.5 text-center transition-colors", isDone ? "border-transparent" : sched ? "hairline group-hover/day:bg-fill/[0.05]" : "border-dashed border-line/20 group-hover/day:bg-fill/[0.03]")}
@@ -193,7 +195,7 @@ export function HabitsPage() {
           <p className="text-xs text-ink-3">{t("Consistency matters more than perfect streaks — rates show the bigger picture.")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Segmented size="sm" value={showArchived ? "all" : "active"} onChange={(v) => setShowArchived(v === "all")} options={[{ value: "active", label: t("Active") }, { value: "all", label: t("Include archived") }]} />
+          <Segmented size="sm" label={t("Show")} value={showArchived ? "all" : "active"} onChange={(v) => setShowArchived(v === "all")} options={[{ value: "active", label: t("Active") }, { value: "all", label: t("Include archived") }]} />
           <Button variant="primary" onClick={() => setForm({ open: true, editing: null })}><Plus className="h-4 w-4" /> {t("New habit")}</Button>
         </div>
       </div>

@@ -67,14 +67,14 @@ function Clock({ compact }: { compact: boolean }) {
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 10_000); return () => clearInterval(id); }, []);
   return (
     // A frosted plate behind the clock, as on a lock screen: white text stays readable on any photo.
-    <motion.div layout className="rounded-[28px] bg-black/55 px-7 py-3 text-center text-white backdrop-blur-md select-none">
+    <motion.div layout className="rounded-[28px] bg-black/60 px-7 py-3 text-center text-white backdrop-blur-md select-none">
       <p className="text-[15px] font-medium opacity-90 first-letter:uppercase">{format(now, t("EEEE, d MMMM"))}</p>
       <motion.p layout className={cn("font-display leading-none font-semibold tracking-tight tnum mt-1", compact ? "text-[56px]" : "text-[76px] sm:text-[96px]")}>{format(now, "HH:mm")}</motion.p>
     </motion.div>
   );
 }
 
-const fieldWrap = "field flex items-center gap-2.5 h-11 rounded-xl px-3.5 focus-within:ring-2 focus-within:ring-accent/50 transition-shadow";
+const fieldWrap = "field flex items-center gap-2.5 h-11 rounded-xl px-3.5"; // .field shows the focus ring
 const inputCls = "min-w-0 flex-1 bg-transparent text-[15px] outline-none focus-visible:outline-none placeholder:text-ink-3";
 
 function TextField({ icon, label, ...rest }: { icon: ReactNode; label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -142,7 +142,7 @@ function CodeInput({ value, onChange, onComplete, disabled }: { value: string; o
             if (e.key === "ArrowRight" && i < 5) refs.current[i + 1]?.focus();
           }}
           onPaste={(e) => { e.preventDefault(); set(e.clipboardData.getData("text")); }}
-          className="field h-12 w-11 rounded-xl text-center text-xl font-semibold tnum outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/50" />
+          className="field h-12 w-11 rounded-xl text-center text-xl font-semibold tnum" />
       ))}
     </div>
   );
@@ -346,7 +346,7 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
             </AnimatePresence>
           </motion.div>
 
-          <div className="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-black/55 px-4 py-3 backdrop-blur-md">
+          <div className="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-black/60 px-4 py-3 backdrop-blur-md">
             {footer}
             <div className="flex justify-center gap-1" role="radiogroup" aria-label={t("Language")}>
               {LANGUAGES.map((l) => (

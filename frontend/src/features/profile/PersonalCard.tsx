@@ -67,9 +67,9 @@ export function PersonalCard({ profile }: { profile: Profile }) {
         }>{(id) => <Textarea id={id} rows={4} value={f.bio} maxLength={BIO_MAX} placeholder={t("A few words about yourself")} onChange={set("bio")} className="resize-y" />}</Field>
         <div className="flex items-center gap-3 pt-1">
           {/* No greyed-out button: say why there is nothing to do instead. */}
-          {changed.length > 0 || save.isPending
-            ? <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>
-            : <span className="text-xs text-ink-2">{t("No unsaved changes")}</span>}
+          {(changed.length > 0 || save.isPending) && <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>}
+          {/* Always mounted, so screen readers announce it when it fills in. */}
+          <span role="status" className="text-xs text-ink-2">{changed.length === 0 && !save.isPending ? t("No unsaved changes") : ""}</span>
           {changed.length > 0 && !save.isPending && (
             <Button variant="ghost" onClick={() => setF(initial)}>{t("Reset")}</Button>
           )}

@@ -51,6 +51,30 @@ test("every focused control shows a solid ring at least 2px wide", async ({ page
   expect([...new Set(weak)]).toEqual([]);
 });
 
+test("menu actions open their dialogs and leave the page usable", async ({ page }) => {
+  await signIn(page);
+  await page.goto("./habits");
+  await settle(page);
+  const menu = page.getByRole("button", { name: /^Actions for / }).first();
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("alertdialog")).toBeHidden();
+
+  // Nothing left blocking the page (Radix menus and dialogs lock pointer events while open).
+  expect(await page.evaluate(() => getComputedStyle(document.body).pointerEvents)).not.toBe("none");
+  await page.getByRole("radio", { name: "Include archived" }).click();
+  await expect(page.getByRole("radio", { name: "Include archived" })).toHaveAttribute("aria-checked", "true");
+});
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
@@ -63,7 +87,7 @@ test.describe("on a phone", () => {
       await settle(page);
       small.push(...(await page.evaluate((where) => {
         const out: string[] = [];
-        const controls = document.querySelectorAll<HTMLElement>("a[href],button,input:not([type=hidden]),select,textarea,[role=tab],[role=checkbox],[role=switch],[role=radio]");
+        const controls = document.querySelectorAll<HTMLElement>("a[href],button,input:not([type=hidden]),select,textarea,[role=tab],[role=radio],[role=checkbox],[role=switch],[role=radio]");
         const clipped = (el: Element, r: DOMRect) => {
           for (let p = el.parentElement; p; p = p.parentElement) {
             if (getComputedStyle(p).overflowX === "visible") continue;
@@ -161,7 +185,7 @@ test.describe("with reduced motion", () => {
       moving.push(...(await watching).map((m) => `${link}: ${m}`));
       await settle(page);
       const again = watch();
-      await page.getByRole("tab", { name: tab }).click();
+      await page.getByRole("radio", { name: tab }).click();
       moving.push(...(await again).map((m) => `${tab}: ${m}`));
     }
     expect(moving).toEqual([]);

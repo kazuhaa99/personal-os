@@ -78,6 +78,7 @@ async function measure([png, boxes]: [string, TextBox[]]): Promise<ContrastFailu
 /** Text in the viewport whose worst-case contrast (5th percentile of its background) is below WCAG AA. */
 export async function contrastFailures(page: Page): Promise<ContrastFailure[]> {
   const boxes = await page.evaluate(collect);
+  if (!boxes.length) throw new Error(`no text found to measure on ${page.url()}`); // never pass by measuring nothing
   const hide = await page.addStyleTag({ content: "*{transition:none!important;animation:none!important;color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}::placeholder{color:transparent!important}svg{visibility:hidden!important}" });
   await page.waitForTimeout(50);
   const png = (await page.screenshot()).toString("base64");

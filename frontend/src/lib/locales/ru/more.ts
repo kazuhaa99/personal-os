@@ -267,4 +267,8 @@ export const more: Dict = {
   "On": "Вкл.",
   "This page couldn't load. Reloading usually fixes it.": "Страница не загрузилась. Обычно помогает перезагрузка.",
   "Reload": "Перезагрузить",
+  "Period": "Период",
+  "Repeat": "Повтор",
+  "Show": "Показать",
+  "View": "Вид",
 };

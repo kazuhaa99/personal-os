@@ -4,7 +4,6 @@ import { format, t, tp } from "./i18n";
 const THIN = " ";
 const SYMBOLS: Record<string, string> = { KZT: "₸", USD: "$", EUR: "€", RUB: "₽" };
 
-/** Format a decimal string without going through float. "-1234567.5" -> "−1 234 567.50 ₸" */
 /** "123" + 1 as a decimal string, for amounts beyond Number's exact range. */
 function incrementDigits(digits: string): string {
   const out = digits.split("");
@@ -15,7 +14,10 @@ function incrementDigits(digits: string): string {
   return `1${out.join("")}`;
 }
 
-/** decimals: "auto" hides zero cents, "always" shows them, "none" rounds to whole units (half away from zero). */
+/**
+ * Format a decimal string without going through float. "-1234567.5" -> "−1 234 567.50 ₸".
+ * decimals: "auto" hides zero cents, "always" shows them, "none" rounds to whole units (half away from zero).
+ */
 export function formatMoney(value: string | null | undefined, currency = "KZT", opts: { sign?: boolean; decimals?: "auto" | "always" | "none" } = {}): string {
   if (value === null || value === undefined || value === "") return "—";
   let s = String(value).trim();

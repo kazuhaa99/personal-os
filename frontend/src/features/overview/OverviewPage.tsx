@@ -64,19 +64,21 @@ function HabitMatrix({ habits, today }: { habits: Habit[]; today: string }) {
                 const on = done.has(d);
                 const isToday = d === today;
                 const due = isScheduled(h, d);
+                const look = cn("block h-6 w-full min-w-6 rounded-[6px] coarse:h-10",
+                  // missed (due, not done): grey; not due that day: an empty outline
+                  !on && (due ? "bg-fill/[0.09]" : "border border-dashed border-line/20"));
+                const day = format(parseISO(d), "EEEE");
                 return (
                   <td key={d} className="p-[3px]">
-                    <button
-                      disabled={!isToday || toggle.isPending}
-                      onClick={() => toggle.mutate({ id: h.id, done: !on })}
-                      aria-pressed={on}
-                      aria-label={`${h.name} ${isToday ? t("today") : format(parseISO(d), "EEEE")}${on ? t(", done") : due ? "" : t(", not scheduled")}`}
-                      className={cn("block h-6 w-full min-w-[22px] rounded-[6px] transition-[background-color,transform] active:scale-90 coarse:h-10",
-                        // missed (due, not done): grey; not due that day: an empty outline
-                        !on && (due ? "bg-fill/[0.09]" : "border border-dashed border-line/20"),
-                        isToday && "tap-target ring-2 ring-accent cursor-pointer", !isToday && "cursor-default")}
-                      style={on ? { background: h.color } : undefined}
-                    />
+                    {isToday ? (
+                      // Only today can be checked off here; aria-pressed carries done / not done.
+                      <button disabled={toggle.isPending} onClick={() => toggle.mutate({ id: h.id, done: !on })} aria-pressed={on}
+                        aria-label={`${h.name} ${t("today")}${due ? "" : t(", not scheduled")}`}
+                        className={cn(look, "tap-target ring-2 ring-accent cursor-pointer transition-[background-color,transform] active:scale-90")}
+                        style={on ? { background: h.color } : undefined} />
+                    ) : (
+                      <span role="img" aria-label={`${h.name} ${day}: ${on ? t("done") : due ? t("missed") : t("not scheduled")}`} className={look} style={on ? { background: h.color } : undefined} />
+                    )}
                   </td>
                 );
               })}

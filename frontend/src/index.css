@@ -115,7 +115,7 @@ body {
 .hairline { border-color: rgb(var(--line) / 0.09); }
 
 /* A solid ring in the accent (chosen to stand 4.5:1 against the page): visible on any glass. */
-*:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 6px; }
+*:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; } /* follows each element's own corners */
 
 /* Fields show focus however it arrived (a click into a date field focuses its inner part, which
    :focus-visible misses). */

@@ -113,7 +113,7 @@ export function TasksPage() {
       {/* Main list */}
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Segmented value={view} onChange={(v) => set({ view: v })} options={[
+          <Segmented label={t("View")} value={view} onChange={(v) => set({ view: v })} options={[
             { value: "today", label: t("Today"), count: tabCounts?.today },
             { value: "upcoming", label: t("Upcoming"), count: tabCounts?.upcoming },
             { value: "all", label: t("All") },

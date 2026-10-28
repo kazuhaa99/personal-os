@@ -113,9 +113,9 @@ test("accent colour follows the wallpaper and can be switched off", async ({ pag
   const accent = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--accent"));
   await expect.poll(accent).not.toBe("");
   const fromWallpaper = await accent();
-  await page.getByRole("tab", { name: "Standard blue" }).click();
+  await page.getByRole("radio", { name: "Standard blue" }).click();
   await expect.poll(accent).toBe("");
-  await page.getByRole("tab", { name: "From wallpaper" }).click();
+  await page.getByRole("radio", { name: "From wallpaper" }).click();
   await expect.poll(accent).toBe(fromWallpaper);
   // remembered for the next visit, applied before React starts
   await page.reload();

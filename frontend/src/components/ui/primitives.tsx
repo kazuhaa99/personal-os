@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { forwardRef, useCallback, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, type KeyboardEvent, useCallback, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { formatMoney, isNegative } from "@/lib/format";
@@ -173,7 +173,7 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
 /** Marks demo rows. `dot`: a small dot for long lists, where a word on every row is noise. */
 export function DemoBadge({ show, dot }: { show: boolean; dot?: boolean }) {
   if (!show) return null;
-  if (dot) return <span role="img" aria-label={t("demo")} title={t("demo")} className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-demo align-middle" />;
+  if (dot) return <span role="img" aria-label={t("demo")} className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-demo align-middle" />;
   return <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge>;
 }
 
@@ -226,27 +226,41 @@ function useScrollEdges<E extends HTMLElement>() {
     if (typeof ResizeObserver === "undefined") return; // old browsers and tests: no live updates
     const observer = new ResizeObserver(update);
     observer.observe(el);
+    for (const child of el.children) observer.observe(child); // content can grow while the box stays at max width
     return () => observer.disconnect();
   }, [update]);
   const gradient = `linear-gradient(to right, ${fade.start ? "transparent, black 24px" : "black"}, ${fade.end ? "black calc(100% - 24px), transparent" : "black"})`;
   return { ref, update, mask: fade.start || fade.end ? { maskImage: gradient, WebkitMaskImage: gradient } : undefined };
 }
 
-export function Segmented<T extends string>({ value, onChange, options, className, size = "md" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md" }) {
+/** Picks one of a few values (a view, a period, a theme): a radio group, one tab stop, arrow keys move. */
+export function Segmented<T extends string>({ value, onChange, options, className, size = "md", label }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; count?: number }[]; className?: string; size?: "sm" | "md"; label?: string }) {
   const id = useId();
   const edges = useScrollEdges<HTMLDivElement>();
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = options.findIndex((o) => o.value === value);
+    const next = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0, End: options.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    const index = (next + options.length) % options.length;
+    onChange(options[index].value);
+    (e.currentTarget.children[index] as HTMLElement | undefined)?.focus();
+  };
   return (
-    <div role="tablist" ref={edges.ref} onScroll={edges.update} style={edges.mask}
+    <div role="radiogroup" aria-label={label} ref={edges.ref} onScroll={edges.update} onKeyDown={onKeyDown} style={edges.mask}
       className={cn("inline-flex rounded-[9px] bg-fill/[0.06] p-0.5 overflow-x-auto max-w-full", className)}>
       {options.map((o) => (
         <button
           key={o.value}
-          role="tab"
+          role="radio"
           type="button"
-          aria-selected={value === o.value}
+          aria-checked={value === o.value}
+          tabIndex={value === o.value ? 0 : -1}
           onClick={() => onChange(o.value)}
+          // Inside a scroller the ring is drawn inward (it would be clipped outside) and the item scrolls into view.
+          onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" })}
           className={cn(
-            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors coarse:min-w-11",
+            "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors coarse:min-w-11 focus-visible:outline-offset-[-2px]",
             size === "md" ? "h-8 coarse:h-11" : "h-7 text-xs px-2.5 coarse:h-11",
             value === o.value ? "text-ink" : "text-ink-2 hover:text-ink",
           )}

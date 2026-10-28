@@ -59,7 +59,7 @@ function RuleForm({ open, onOpenChange, editing }: { open: boolean; onOpenChange
     <Modal open={open} onOpenChange={onOpenChange} title={editing ? t("Edit recurring payment") : t("New recurring payment")} onSubmit={submit}
       description={t("A rule only describes what you expect. It never moves money until you confirm an occurrence.")}
       footer={<><Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button></>}>
-      {!editing && <Segmented value={type} onChange={(t) => { setType(t); setCategoryId(""); }} options={[{ value: "expense", label: t("Expense") }, { value: "income", label: t("Income") }]} />}
+      {!editing && <Segmented label={t("Type")} value={type} onChange={(t) => { setType(t); setCategoryId(""); }} options={[{ value: "expense", label: t("Expense") }, { value: "income", label: t("Income") }]} />}
       <Field label={t("Name")} error={errors.name}>{(id) => <Input id={id} autoFocus value={name} maxLength={80} placeholder={t("e.g. Internet, Rent, Salary")} onChange={(e) => setName(e.target.value)} />}</Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("Amount")} error={errors.amount}>{(id) => <Input id={id} inputMode="decimal" className="tnum" value={amount} onChange={(e) => setAmount(e.target.value)} />}</Field>

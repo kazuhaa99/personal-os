@@ -79,7 +79,7 @@ function AppearanceCard() {
       <CardHeader title={<span className="inline-flex items-center gap-2"><Palette className="h-4 w-4 text-ink-3" /> {t("Appearance")}</span>}
         subtitle={t("Stored in this browser, including your own photo — it isn't uploaded to the server. Glass surfaces show the wallpaper through; text always sits on a near-opaque layer.")} />
       <div className="px-5 pb-5 space-y-4">
-        <Segmented<ThemeMode> value={mode} onChange={setMode} options={[{ value: "light", label: t("Light") }, { value: "dark", label: t("Dark") }, { value: "system", label: t("Match system") }]} />
+        <Segmented<ThemeMode> label={t("Appearance")} value={mode} onChange={setMode} options={[{ value: "light", label: t("Light") }, { value: "dark", label: t("Dark") }, { value: "system", label: t("Match system") }]} />
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5" role="radiogroup" aria-label={t("Wallpaper")}>
           {WALLPAPERS.map((w) => (
             <button key={w.id} type="button" role="radio" aria-checked={wallpaper === w.id} onClick={() => setWallpaper(w.id)} className="group text-left">
@@ -134,7 +134,7 @@ function AppearanceCard() {
               <span aria-hidden className="h-4 w-4 rounded-full bg-accent ring-1 ring-black/10" />
               {t("Accent colour")}
             </span>
-            <Segmented<AccentMode> size="sm" value={accentMode} onChange={setAccentMode}
+            <Segmented<AccentMode> size="sm" label={t("Accent colour")} value={accentMode} onChange={setAccentMode}
               options={[{ value: "wallpaper", label: t("From wallpaper") }, { value: "default", label: t("Standard blue") }]} />
           </div>
           {accentMode === "wallpaper" && vivid === null && (
@@ -161,7 +161,7 @@ function LanguageCard() {
       <CardHeader title={<span className="inline-flex items-center gap-2"><Languages className="h-4 w-4 text-ink-3" /> {t("Language")}</span>}
         subtitle={t("Interface language. Your own records stay as you typed them.")} />
       <div className="px-5 pb-5">
-        <Segmented<Lang> value={lang} onChange={setLang} options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))} />
+        <Segmented<Lang> label={t("Language")} value={lang} onChange={setLang} options={LANGUAGES.map((l) => ({ value: l.id, label: l.label }))} />
       </div>
     </Card>
   );

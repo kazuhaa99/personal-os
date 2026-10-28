@@ -43,7 +43,7 @@ export function AnalyticsPage() {
 
   const filters = (
     <div className="flex flex-wrap items-center gap-2">
-      <Segmented value={preset} onChange={(p) => setPreset(p)} options={[
+      <Segmented label={t("Period")} value={preset} onChange={(p) => setPreset(p)} options={[
         { value: "3m", label: t("3 months") }, { value: "6m", label: t("6 months") }, { value: "12m", label: t("12 months") }, { value: "ytd", label: t("This year") }, { value: "custom", label: t("Custom") },
       ]} />
       {preset === "custom" && (

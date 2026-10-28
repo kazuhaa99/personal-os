@@ -157,13 +157,13 @@ export function TransactionsPage() {
                     <td className="px-3 py-2 max-w-[38vw] sm:max-w-[22rem]">
                       {/* The description opens the transaction: a large target, also on a phone. */}
                       <button type="button" className="block max-w-full text-left coarse:min-h-11" onClick={() => qa.editTransaction(tx)}>
-                      <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? t("Transfer") : tx.category ? t(tx.category.name) : "")}<DemoBadge show={tx.is_demo} dot /></p>
-                      <p className="text-xs text-ink-3 truncate">
+                      <span className="block truncate">{tx.description || tx.payee || (tx.type === "transfer" ? t("Transfer") : tx.category ? t(tx.category.name) : t("Transaction"))}<DemoBadge show={tx.is_demo} dot /></span>
+                      <span className="block text-xs text-ink-3 truncate">
                         {tx.payee && tx.description ? tx.payee : ""}
                         {tx.tags.map((tag) => <span key={tag} className="mr-1.5">#{tag}</span>)}
                         {tx.recurring_rule_id && <Badge className="mr-1">{t("recurring")}</Badge>}
                         {tx.installment_payment_id && <Badge className="mr-1">{t("installment")}</Badge>}
-                      </p>
+                      </span>
                       </button>
                     </td>
                     <td className="px-3 py-2 hidden md:table-cell">

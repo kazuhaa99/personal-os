@@ -68,7 +68,7 @@ function GoalForm({ open, onOpenChange, editing }: { open: boolean; onOpenChange
       </div>
       <div className="space-y-2">
         <p className="text-xs font-medium text-ink-2">{t("How is progress measured?")}</p>
-        <Segmented value={f.progress_mode} onChange={(v) => setF((s) => ({ ...s, progress_mode: v }))} options={[
+        <Segmented label={t("Progress")} value={f.progress_mode} onChange={(v) => setF((s) => ({ ...s, progress_mode: v }))} options={[
           { value: "manual", label: t("I'll update it") }, { value: "milestones", label: t("Milestones") }, { value: "target", label: t("A number") },
         ]} />
       </div>
@@ -158,7 +158,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
               <span className="text-xs text-ink-3">{goal.status !== "active" ? <Badge>{status(goal.status)}</Badge> : goal.overdue ? <span className="text-bad">{t("past target date")}</span> : goal.days_left !== null ? tp("{n} days left", goal.days_left) : ""}</span>
             </div>
             {goal.progress_mode === "manual" ? (
-              <input type="range" min={0} max={100} step={5} value={progress} onChange={(e) => setProgress(e.target.value)} className="w-full accent-[rgb(var(--accent))] coarse:h-11" aria-label={t("Progress")} />
+              <input type="range" min={0} max={100} step={1} value={progress} onChange={(e) => setProgress(e.target.value)} className="w-full accent-[rgb(var(--accent))] coarse:h-11" aria-label={t("Progress")} />
             ) : <Progress value={goal.progress} tone={goal.status === "completed" ? "good" : goal.overdue ? "warn" : "accent"} label={t("Goal progress")} />}
           </div>
           {goal.history.length >= 2 && (
@@ -175,7 +175,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
         </div>
         {goal.progress_mode === "manual" && Number(progress) !== goal.manual_progress && (
           <div className="mt-3 flex items-center gap-2">
-            <Button size="sm" variant="primary" onClick={() => patch.mutate({ manual_progress: Math.max(0, Math.min(100, Number(progress) || 0)) })}>{t("Save progress")}</Button>
+            <Button size="sm" variant="primary" loading={patch.isPending} onClick={() => patch.mutate({ manual_progress: Math.max(0, Math.min(100, Number(progress) || 0)) })}>{t("Save progress")}</Button>
             <Button size="sm" variant="ghost" onClick={() => setProgress(String(goal.manual_progress))}>{t("Cancel")}</Button>
           </div>
         )}
@@ -265,7 +265,7 @@ export function GoalsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented size="sm" value={showArchived ? "all" : "current"} onChange={(v) => setShowArchived(v === "all")} options={[{ value: "current", label: t("Current") }, { value: "all", label: t("Include archived") }]} />
+        <Segmented size="sm" label={t("Show")} value={showArchived ? "all" : "current"} onChange={(v) => setShowArchived(v === "all")} options={[{ value: "current", label: t("Current") }, { value: "all", label: t("Include archived") }]} />
         <Button variant="primary" onClick={() => setForm({ open: true, editing: null })}><Plus className="h-4 w-4" /> {t("New goal")}</Button>
       </div>
       {isLoading ? <LoadingBlock /> : !goals?.length ? (

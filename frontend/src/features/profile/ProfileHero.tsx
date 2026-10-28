@@ -78,14 +78,13 @@ export function ProfileHero({ profile }: { profile: Profile }) {
             className={cn(
               "group relative block h-24 w-24 sm:h-28 sm:w-28 rounded-full overflow-hidden",
               "ring-1 ring-black/5 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.35)] transition-shadow",
-              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-accent/50",
-              dragging && "ring-[3px] ring-accent",
+                            dragging && "ring-[3px] ring-accent",
             )}
           >
             {showImg ? (
               <img src={resolveApiUrl(profile.avatar_url)!} alt="" className="h-full w-full object-cover" onError={() => setImgFailed(profile.avatar_url)} />
             ) : (
-              <span className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#5ac8fa_0%,#007aff_45%,#af52de_100%)] text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+              <span aria-hidden className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#5ac8fa_0%,#007aff_45%,#af52de_100%)] text-3xl sm:text-4xl font-semibold tracking-tight text-white">
                 {initials(profile.first_name, profile.last_name, account.username)}
               </span>
             )}

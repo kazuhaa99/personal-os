@@ -121,7 +121,7 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
         <p className="text-sm text-ink-2">{t("Create an account first (Finances → Accounts).")}</p>
       ) : (
         <>
-          <Segmented
+          <Segmented label={t("Type")}
             value={type}
             onChange={(v) => { setType(v); setCategoryId(""); }}
             options={[{ value: "expense", label: t("Expense") }, { value: "income", label: t("Income") }, { value: "transfer", label: t("Transfer") }]}

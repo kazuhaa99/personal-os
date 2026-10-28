@@ -28,7 +28,7 @@ export function AppLockCard() {
         subtitle={status.available ? t("Ask for {method} when the app opens or comes back after a minute.", { method: name }) : t("Set up Face ID or Touch ID on this device to use the app lock.")} />
       {status.available && (
         <div className="px-5 pb-5">
-          <Segmented value={on ? "on" : "off"} onChange={(v) => void change(v === "on")}
+          <Segmented label={t("App lock")} value={on ? "on" : "off"} onChange={(v) => void change(v === "on")}
             options={[{ value: "off", label: t("Off") }, { value: "on", label: t("On") }]} />
         </div>
       )}
