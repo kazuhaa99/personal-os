@@ -117,7 +117,7 @@ export function BudgetsPage() {
                     <span className="tnum">{t("Last month: {amount}", { amount: formatMoney(l.previous_month_spent, cur) })}</span>
                     <span className="tnum">{t("3-month avg: {amount}", { amount: l.average_3m_spent === null ? t("not enough history") : formatMoney(l.average_3m_spent, cur) })}</span>
                     <span>{t("Limit since {month}", { month: monthLabel(l.effective_since) })}</span>
-                    <span className="ml-auto flex gap-1 opacity-70 group-hover:opacity-100">
+                    <span className="ml-auto flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => setForm({ open: true, line: l })}>{t("Edit")}</Button>
                       <Button size="sm" variant="ghost" onClick={() => onDisable(l)}>{t("Disable")}</Button>
                     </span>

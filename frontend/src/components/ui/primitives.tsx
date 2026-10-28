@@ -19,7 +19,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-accent text-accent-ink font-medium shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.15)] hover:brightness-110 active:brightness-95",
   secondary: "bg-surface/80 text-ink border hairline shadow-[0_1px_2px_rgb(0_0_0/0.06)] hover:bg-surface active:bg-fill/[0.06]",
   ghost: "text-ink-2 hover:text-ink hover:bg-fill/[0.06] active:bg-fill/[0.1]",
-  danger: "bg-bad text-white font-medium hover:brightness-110 active:brightness-95",
+  danger: "bg-bad text-bad-ink font-medium hover:brightness-110 active:brightness-95",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -216,7 +216,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           className={cn(
             "relative rounded-[7px] px-3 text-sm font-medium whitespace-nowrap transition-colors",
             size === "md" ? "h-8" : "h-7 text-xs px-2.5",
-            value === o.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
+            value === o.value ? "text-ink" : "text-ink-2 hover:text-ink",
           )}
         >
           {value === o.value && (
@@ -224,7 +224,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           )}
           <span className="relative">
             {o.label}
-            {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-3 tnum">{o.count}</span>}
+            {o.count !== undefined && o.count > 0 && <span className="ml-1.5 text-2xs text-ink-2 tnum">{o.count}</span>}
           </span>
         </button>
       ))}

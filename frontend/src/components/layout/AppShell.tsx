@@ -87,7 +87,7 @@ function SideLink({ item, data, onNavigate }: { item: NavItem; data?: Dashboard;
           {isActive && <motion.span layoutId="side-active" className="absolute inset-0 rounded-[8px] bg-fill/[0.09] shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4)]" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}
           <Icon className="relative h-[17px] w-[17px] text-accent" strokeWidth={1.8} />
           <span className="relative flex-1 truncate">{t(label)}</span>
-          {b !== null && b !== undefined && <span className="relative text-xs text-ink-3 tnum">{b}</span>}
+          {b !== null && b !== undefined && <span className="relative text-xs text-ink-2 tnum">{b}</span>}
         </>
       )}
     </NavLink>
@@ -102,7 +102,7 @@ function SidebarContent({ onNavigate, onCollapse }: { onNavigate?: () => void; o
   return (
     <div className="flex h-full flex-col px-2.5 pb-3">
       <div className="flex h-14 items-center gap-2.5 px-2">
-        <div className="h-7 w-7 rounded-[8px] grid place-items-center text-accent-ink text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(var(--accent)/0.35)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>
+        <div aria-hidden className="h-7 w-7 rounded-[8px] grid place-items-center text-accent-ink text-[13px] font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_6px_rgb(var(--accent)/0.35)]" style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 70%, white), rgb(var(--accent)))" }}>P</div>
         <span className="flex-1 text-[15px] font-semibold tracking-tight">Personal OS</span>
         {onCollapse && <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t("Hide sidebar")} onClick={onCollapse}><PanelLeftClose className="h-4 w-4" /></Button>}
       </div>
@@ -145,7 +145,7 @@ export function Avatar({ src, name, className }: { src?: string | null; name: st
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
   return src
     ? <img src={src} alt="" className={cn("rounded-full object-cover ring-1 ring-line/10", className)} />
-    : <span className={cn("grid place-items-center rounded-full text-accent-ink font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 65%, #7b8cff), rgb(var(--accent)))" }}>{initials}</span>;
+    : <span aria-hidden className={cn("grid place-items-center rounded-full text-accent-ink font-semibold ring-1 ring-white/20", className)} style={{ background: "linear-gradient(145deg, color-mix(in srgb, rgb(var(--accent)) 65%, #7b8cff), rgb(var(--accent)))" }}>{initials}</span>;
 }
 
 function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
@@ -158,7 +158,7 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
         <Avatar src={resolveApiUrl(profile?.avatar_url)} name={full || username || ""} className="h-8 w-8 shrink-0 text-xs" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[13.5px] font-medium">{full || username}</span>
-          <span className="block truncate text-xs text-ink-3">{username ? `@${username}` : t("Profile")}</span>
+          <span className="block truncate text-xs text-ink-2">{username ? `@${username}` : t("Profile")}</span>
         </span>
       </NavLink>
       <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={t("Sign out")} title={t("Sign out")} onClick={() => void logout()}>
@@ -171,7 +171,7 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
 // ---------------------------------------------------------------- toolbar menus
 
 const menuContent = "mat-popover z-50 min-w-[220px] rounded-xl p-1 text-[13.5px] data-[state=open]:animate-[dlg-fade_0.14s_ease-out]";
-const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-white";
+const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-ink";
 
 function ThemeMenu() {
   const { mode, setMode, resolved } = useTheme();
@@ -285,7 +285,7 @@ export function AppShell() {
           )}
         </AnimatePresence>
 
-        <div className="relative flex-1 min-w-0 flex flex-col bg-surface/55 backdrop-blur-2xl">
+        <div className="relative flex-1 min-w-0 flex flex-col bg-surface/[0.78] backdrop-blur-2xl">
           <header data-tauri-drag-region className="app-header flex h-[calc(3.5rem+var(--sat))] shrink-0 items-center gap-2 pt-[var(--sat)] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] lg:h-14 lg:pt-0 lg:px-4 border-b hairline bg-surface/50 backdrop-blur-xl">
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t("Open menu")} onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
             {collapsed && <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={t("Show sidebar")} onClick={() => setCollapsed(false)}><PanelLeftOpen className="h-4 w-4" /></Button>}
@@ -337,9 +337,8 @@ export function AppShell() {
       {/* Mobile tab bar: floating glass */}
       <nav className="lg:hidden fixed bottom-[max(0.75rem,var(--sab))] left-[max(0.75rem,var(--sal))] right-[max(0.75rem,var(--sar))] z-30 grid grid-cols-5 rounded-2xl mat-glass p-1" aria-label={t("Primary")}>
         {([PERSONAL[0], PERSONAL[1], { to: "/finances/transactions", label: "Money", icon: ArrowLeftRight }, PERSONAL[3], { to: "/analytics", label: "Analytics", icon: BarChart3 }] as NavItem[]).map(({ to, label, short, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-accent bg-fill/[0.06]" : "text-ink-2")}>
-            <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
-            {t(short ?? label)}
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px]", isActive ? "text-ink font-medium bg-fill/[0.06]" : "text-ink-2")}>
+            {({ isActive }) => <><Icon className={cn("h-[18px] w-[18px]", isActive && "text-accent")} strokeWidth={1.8} />{t(short ?? label)}</>}
           </NavLink>
         ))}
       </nav>

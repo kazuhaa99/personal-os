@@ -23,6 +23,11 @@ function rangeFor(p: Preset): [string, string] {
 
 const num = (s: string | null | undefined) => (s ? Number(s) : 0); // chart geometry only; displayed values use strings
 
+/** A colour key next to its name: coloured text itself would be too faint on some backgrounds. */
+function Swatch({ color }: { color: string }) {
+  return <i aria-hidden className="mr-1 inline-block h-2 w-2 rounded-[2px] align-baseline" style={{ background: color }} />;
+}
+
 export function AnalyticsPage() {
   const [preset, setPreset] = useState<Preset>("6m");
   const [custom, setCustom] = useState(rangeFor("6m"));
@@ -107,7 +112,7 @@ export function AnalyticsPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title={t("Net cash flow")} subtitle={<>{t("Income − expenses per month.")} <span style={{ color: SERIES[0] }}>{t("Blue")}</span> = {t("kept")}, <span style={{ color: NEG }}>{t("red")}</span> = {t("overspent")}.</>}
+        <ChartCard title={t("Net cash flow")} subtitle={<>{t("Income − expenses per month.")} <Swatch color={SERIES[0]} />{t("Blue")} = {t("kept")}, <Swatch color={NEG} />{t("red")} = {t("overspent")}.</>}
           table={{ columns: [t("Month"), t("Net cash flow"), t("Share of income kept")], rows: cf.months.map((m) => [monthLabel(m.month), formatMoney(m.net_cash_flow, cur, { sign: true }), m.savings_rate ? `${m.savings_rate}%` : "—"]) }}
           empty={noData ? emptyChart : undefined}>
           <ResponsiveContainer width="100%" height={240}>

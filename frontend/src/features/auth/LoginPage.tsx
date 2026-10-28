@@ -66,7 +66,8 @@ function Clock({ compact }: { compact: boolean }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 10_000); return () => clearInterval(id); }, []);
   return (
-    <motion.div layout className="text-center text-white [text-shadow:0_1px_12px_rgb(0_0_0/0.25)] select-none">
+    // A frosted plate behind the clock, as on a lock screen: white text stays readable on any photo.
+    <motion.div layout className="rounded-[28px] bg-black/55 px-7 py-3 text-center text-white backdrop-blur-md select-none">
       <p className="text-[15px] font-medium opacity-90 first-letter:uppercase">{format(now, t("EEEE, d MMMM"))}</p>
       <motion.p layout className={cn("font-display leading-none font-semibold tracking-tight tnum mt-1", compact ? "text-[56px]" : "text-[76px] sm:text-[96px]")}>{format(now, "HH:mm")}</motion.p>
     </motion.div>
@@ -167,7 +168,7 @@ function Header({ icon, title, subtitle }: { icon?: ReactNode; title: string; su
   );
 }
 
-const linkBtn = "text-[13px] font-medium text-accent hover:underline underline-offset-2";
+const linkBtn = "text-[13px] font-medium text-ink underline decoration-ink/30 underline-offset-2 hover:decoration-ink";
 
 export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user: AuthUser) => void; registrationOpen: boolean }) {
   const { lang, setLang } = useLang();
@@ -263,8 +264,8 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
   };
 
   const footer = view.name === "login"
-    ? registrationOpen && <p className="text-[13px] text-white/90 [text-shadow:0_1px_6px_rgb(0_0_0/0.35)]">{t("No account yet?")} <button className="font-semibold text-white underline-offset-2 hover:underline" onClick={() => { setPassword(""); go({ name: "register" }); }}>{t("Create one")}</button></p>
-    : <button className="inline-flex items-center gap-1 text-[13px] font-medium text-white/90 [text-shadow:0_1px_6px_rgb(0_0_0/0.35)] hover:text-white" onClick={() => { setPassword(""); go({ name: "login" }); }}><ArrowLeft className="h-3.5 w-3.5" /> {t("Back to sign in")}</button>;
+    ? registrationOpen && <p className="text-[13px] text-white">{t("No account yet?")} <button className="font-semibold text-white underline-offset-2 hover:underline" onClick={() => { setPassword(""); go({ name: "register" }); }}>{t("Create one")}</button></p>
+    : <button className="inline-flex items-center gap-1 text-[13px] font-medium text-white" onClick={() => { setPassword(""); go({ name: "login" }); }}><ArrowLeft className="h-3.5 w-3.5" /> {t("Back to sign in")}</button>;
 
   return (
     <div className="fixed inset-0 overflow-y-auto">
@@ -345,12 +346,12 @@ export function LoginPage({ onSignedIn, registrationOpen }: { onSignedIn: (user:
             </AnimatePresence>
           </motion.div>
 
-          <div className="mt-5 flex flex-col items-center gap-3">
+          <div className="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-black/55 px-4 py-3 backdrop-blur-md">
             {footer}
             <div className="flex justify-center gap-1" role="radiogroup" aria-label={t("Language")}>
               {LANGUAGES.map((l) => (
                 <button key={l.id} role="radio" aria-checked={lang === l.id} onClick={() => setLang(l.id)}
-                  className={cn("rounded-full px-3 py-1 text-[13px] text-white/85 transition-colors hover:bg-white/15 [text-shadow:0_1px_6px_rgb(0_0_0/0.3)]", lang === l.id && "bg-white/20 text-white font-medium backdrop-blur-md")}>
+                  className={cn("rounded-full px-3 py-1 text-[13px] text-white transition-colors hover:bg-white/15", lang === l.id && "bg-white/20 font-medium")}>
                   {l.label}
                 </button>
               ))}

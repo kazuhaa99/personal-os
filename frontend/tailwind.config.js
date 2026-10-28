@@ -16,7 +16,7 @@ export default {
         accent: { DEFAULT: v("accent"), ink: v("accent-ink") },
         good: v("good"),
         warn: v("warn"),
-        bad: v("bad"),
+        bad: { DEFAULT: v("bad"), ink: v("bad-ink") },
         demo: v("demo"),
       },
       fontFamily: {

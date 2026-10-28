@@ -71,7 +71,7 @@ function AppearanceCard() {
   };
 
   const tileFrame = "relative block aspect-[4/3] overflow-hidden rounded-xl ring-1 ring-line/10 transition-shadow";
-  const selectedMark = <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>;
+  const selectedMark = <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-accent-ink"><Check className="h-3 w-3" strokeWidth={3} /></span>;
 
   return (
     <div {...dragProps}>
