@@ -14,10 +14,16 @@ Overview ─ Tasks ─ Goals & Projects ─ Habits ─ Finances (Transactions ·
 ### Option A — Docker Compose (recommended for daily use)
 
 ```bash
-cp .env.example .env          # then set long random POSTGRES_PASSWORD and POS_APP_DB_PASSWORD
+cp .env.example .env          # then set POSTGRES_PASSWORD, POS_APP_DB_PASSWORD and POS_SECRET_KEY
 docker compose up -d --build
 open http://127.0.0.1:8080
 ```
+
+`POS_SECRET_KEY` must be set (e.g. `openssl rand -hex 32`). The container can't keep a generated session key,
+so without it every restart signs everyone out.
+
+The first account is `admin`. Set `POS_AUTH_PASSWORD` in `.env` (at least 8 characters), or leave it unset and
+read the random password that is written once to the log: `docker compose logs api | grep "Created the first account"`.
 
 Migrations run automatically when the API container starts. Data lives in the
 `pgdata` volume and survives restarts (`docker compose down` keeps it; `down -v` deletes it).
@@ -41,8 +47,8 @@ docker compose restart api
 Requirements: Python 3.12+ (tested on 3.13), Node 20+ (tested on 22), PostgreSQL 16.
 
 ```bash
-# 1. Database (once)
-sudo -u postgres psql -c "CREATE USER personal_os WITH PASSWORD 'personal_os_dev' CREATEDB;"
+# 1. Database (once), as the local postgres superuser
+sudo -u postgres psql -c "CREATE USER personal_os WITH PASSWORD 'personal_os_dev' CREATEDB BYPASSRLS;"
 sudo -u postgres psql -c "CREATE DATABASE personal_os OWNER personal_os;"
 sudo -u postgres psql -c "CREATE DATABASE personal_os_test OWNER personal_os;"   # for tests
 # the API's restricted role (row-level security applies to it; migrations run as personal_os)
@@ -52,9 +58,7 @@ sudo -u postgres psql -c "CREATE ROLE personal_os_app LOGIN NOSUPERUSER NOBYPASS
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r backend/requirements-dev.txt
 cd backend
-cp .env.example .env                       # adjust if your DB differs; for RLS set
-#   POS_DATABASE_URL=postgresql+psycopg://personal_os_app:personal_os_app_dev@localhost:5432/personal_os
-#   POS_MIGRATION_DATABASE_URL=postgresql+psycopg://personal_os:personal_os_dev@localhost:5432/personal_os
+cp .env.example .env                       # its URLs already use personal_os_app (RLS) for the API and personal_os for migrations
 alembic upgrade head
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
@@ -64,9 +68,13 @@ npm install
 npm run dev                                # http://127.0.0.1:5173 (proxies /api → :8000)
 ```
 
+`BYPASSRLS` on the owner role (`personal_os`) is for local development only: the test suite reads other
+accounts' rows through the owner connection, and Postgres would hide them otherwise. The API must never connect
+as a role with `BYPASSRLS`. If the owner role already exists, run `ALTER USER personal_os BYPASSRLS;`.
+
 API docs (OpenAPI): http://127.0.0.1:8000/docs
 
-**Sign in** as `admin` — the first account, created on first start (existing data belongs to it). Its password is
+**Sign in** as `admin` — the first account, created on first start when no users exist yet (existing data belongs to it). Its password is
 `POS_AUTH_PASSWORD` if you set one (at least 8 characters); otherwise a random password is generated and written
 once to the API log (`Created the first account 'admin'. Its password …`; with Docker: `docker compose logs api`).
 Change it in Profile → Login & security. Anyone else can **create an account** on the login screen; each account has its own
@@ -75,16 +83,16 @@ tasks, finances, habits, settings and profile.
 ### Accounts, email confirmation and the Profile
 
 - Sign in with **username or email**. Registration asks for username, email and password and mails a
-  6-digit code (sent from `spokeesofficial@gmail.com`); the account works once the code is entered.
-  Forgotten passwords are reset with an emailed code. Changing the login email confirms the new address first.
+  6-digit code; the account works once the code is entered. Forgotten passwords are reset with an emailed code.
+  Changing the login email confirms the new address first.
 - **Profile** (sidebar → your name): avatar, first/last name, phone, birthday, city, occupation, employer, bio,
   salary (amount, currency, frequency, payday) and additional income sources. It shows the expected income per
   month (all schedules normalised to a month) next to what has actually arrived this month.
 - **Sending email** needs an SMTP password. For Gmail: enable 2-Step Verification on the Google account, create an
   *App password* (Google Account → Security → App passwords) and start the API with
-  `POS_SMTP_PASSWORD=<app password>` (host/port/user default to `smtp.gmail.com:587` / `spokeesofficial@gmail.com`).
-  Never commit it. Without it, registration is closed (the login page hides "Create account"). For local testing
-  `POS_MAIL_DEV_LOG=true` prints the emails, codes included, to the API log instead of sending them.
+  `POS_SMTP_PASSWORD=<app password>`, with `POS_SMTP_USER` and `POS_MAIL_FROM` set to your own address (host and port default to `smtp.gmail.com:587`).
+  Never commit it. Without it (and without `POS_MAIL_DEV_LOG`), registration is closed: the login page hides "Create account".
+  For local testing `POS_MAIL_DEV_LOG=true` prints the emails, codes included, to the API log instead of sending them.
 - **Deleting an account**: Profile → Login & security → *Delete account*. It asks for the current password and for
   the login to be typed, then removes the account and everything it owns (finances, tasks, goals, habits, profile)
   and signs out. The last remaining account can't be deleted.
@@ -109,8 +117,13 @@ location /personalos/ {
 }
 ```
 
+The web container believes `X-Forwarded-For` only from `127.0.0.1` and `172.16.0.0/12` (`frontend/nginx.conf`), so the
+host proxy must reach it over loopback or the Docker bridge, as in the example above. Anyone else who connects
+directly can't make up a client address.
+
 The web build carries a strict Content Security Policy (`vite.config.ts`: only its own scripts, styles,
-images and API), so the host proxy doesn't need to add one.
+images and API), so the host proxy doesn't need to add one. Its only inline script is `public/boot.js`, which
+applies the saved theme before first paint.
 
 The service worker registers with the prefix as its scope, so it never controls the host site's other pages.
 Sharing a domain still means sharing an origin (localStorage, script-readable cookies) with the host site — a
@@ -132,15 +145,17 @@ The same React app also ships as an iPhone app (Capacitor, `frontend/ios/`) and 
 
 - **Sign-in:** the apps don't use the web's cookie. They get an access + refresh token pair (`POST /api/auth/token`);
   the refresh token is kept in the Keychain, the access token only in memory. Sign-out revokes the session on the
-  server. The API needs migration `0004` and allows the apps' origins (`POS_NATIVE_ORIGINS`, default
-  `capacitor://localhost,tauri://localhost`).
+  server. The API needs migrations `0004` and `0005` and allows the apps' origins (`POS_NATIVE_ORIGINS`, default
+  `capacitor://localhost,tauri://localhost`). Access tokens (`posat_…`) last `POS_NATIVE_ACCESS_MINUTES` (15); refresh
+  tokens (`posrt_…`) rotate on every use and last `POS_NATIVE_REFRESH_DAYS` (60), up to `POS_NATIVE_SESSION_MAX_DAYS` (180) in total.
 - **Offline:** the apps show the last loaded data read-only, with a "no connection" banner; nothing is written offline.
 - **App lock:** optional Face ID / Touch ID (Settings → App lock).
 - **Mac:** remembered window size, app menu, <kbd>⌘N</kbd> new transaction, <kbd>⌘F</kbd> search, <kbd>⌘,</kbd> settings.
 
 Requirements (macOS): Node 20+, [Rust](https://rustup.rs) for the Mac app, Xcode for the iPhone app. The apps call the
 API at an absolute HTTPS address given at build time in `VITE_API_BASE` (the build refuses anything else, except
-`http://localhost` / `127.0.0.1` for development).
+`http://localhost` / `127.0.0.1` for development). The Mac release build also sets a Content Security Policy that lets the
+window talk only to that API origin (`scripts/tauri-build.mjs`, `scripts/native-csp.mjs`).
 
 ```bash
 cd frontend
@@ -190,6 +205,8 @@ The app uses **Premium Native** (concept D from the design lab) as its structure
   `Accept-Language` header, and so do server error messages (validation and business rules, in
   `backend/app/services/error_text.py`; a test fails if a raised message has no RU/KO entry). Dictionaries live in `frontend/src/lib/locales/<lang>/`; English source strings are the keys,
   so a missing entry falls back to English. `npm run i18n:check` lists any key without a Russian or Korean entry.
+- **Accessibility**: a visible focus ring on every control, 44 px touch targets on touch screens, reduced motion
+  respected, and text contrast checked against the real rendered pixels (see the end-to-end tests below).
 - **⌘K / Ctrl+K command palette**: navigate, create, switch appearance, and search real transactions and tasks.
 - Motion: blurred cross-fades between pages, spring dialogs, animated selection pills in the sidebar and segmented controls.
 
@@ -206,24 +223,41 @@ Details: [`frontend/src/design-lab/README.md`](frontend/src/design-lab/README.md
 
 ```bash
 # Backend (uses the separate personal_os_test database; refuses to run against any DB without "test" in its name)
-cd backend && ../.venv/bin/python -m pytest -q
+cd backend
+../.venv/bin/python -m pytest -q
 # … the same suite as the restricted role, with row-level security in force (recommended):
 POS_DATABASE_URL=postgresql+psycopg://personal_os_app:<pw>@localhost:5432/personal_os_test POS_TEST_OWNER_DATABASE_URL=postgresql+psycopg://personal_os:<pw>@localhost:5432/personal_os_test   ../.venv/bin/python -m pytest -q
 
-# End-to-end (Playwright on the installed Chrome; builds the app and starts its own API on :8001
-# with a fresh personal_os_e2e database — set E2E_OWNER_URL / E2E_APP_URL if your DB differs)
-cd frontend && npm run e2e
-
 # Frontend
-cd frontend && npm test            # vitest
-cd frontend && npm run typecheck   # tsc
-cd frontend && npm run build
+cd frontend
+npm test                  # vitest (unit and component tests)
+npm run typecheck         # tsc
+npm run i18n:check        # every UI string has a Russian and a Korean entry
+npm run build             # production build
+
+# End-to-end (Playwright on the installed Chrome; builds the app and starts its own API on :8001
+# with a fresh personal_os_e2e database, and serves the build on :4174)
+npm run e2e
 ```
 
-Current status: **231 backend tests** (228 + 3 RLS checks that need the restricted role), **22 frontend tests**
-and **6 end-to-end scenarios** passing — sign-out back to the login page, registration with the email code,
-sign-in by email, saving the profile, server errors in Russian, deleting an account, phone layout without
-sideways scroll. Typecheck and production build clean.
+**End-to-end setup.** `npm run e2e` needs Google Chrome installed, the backend venv at the repository root (`.venv`, or
+set `E2E_PYTHON`), and a PostgreSQL that the owner role can reach with `CREATEDB`. Its defaults are
+`E2E_OWNER_URL=postgresql+psycopg://personal_os@127.0.0.1:5433` and `E2E_APP_URL=postgresql+psycopg://personal_os_app@127.0.0.1:5433`
+(port 5433, no database name). Put the passwords in the URLs or in `PGPASSWORD` / `~/.pgpass`. Options:
+
+- `E2E_BASE=/personalos/ npm run e2e`: the same suite against a build served under a path prefix.
+- `E2E_CONTRAST=full npm run e2e`: the contrast check runs on every wallpaper (33 tests instead of 25).
+
+The end-to-end suite covers, among others: sign-out back to the login page, registration with the email code,
+sign-in by email, saving the profile, server errors in Russian, deleting an account, the accent colour following the
+wallpaper, phone layout without sideways scroll, the service worker never caching `/api`, and the strict CSP.
+`a11y.spec.ts` checks the focus ring, 44 px touch targets, reduced motion, long Russian and Korean titles and the menu
+dialogs; `contrast.spec.ts` measures WCAG AA text contrast on real pixels over the built-in and uploaded
+white, black and striped wallpapers.
+
+Current counts at commit `187c720`: **336 backend tests** (pytest collection), **93 frontend unit tests**
+(all passing on this commit) and **25 end-to-end tests** (33 with `E2E_CONTRAST=full`). The end-to-end and
+backend runs need PostgreSQL and Chrome, which were not available when these counts were taken.
 
 Backend coverage includes: transaction CRUD and balance recalculation, transfers (both sides,
 excluded from income/expense), currency separation, archived accounts, zero/negative/3-decimal
@@ -233,7 +267,9 @@ confirmation, skip, re-processing idempotent), installment balances (single expe
 overpayment rejected, payoff, linked-transaction protection), task completion and recurring
 spawning (exactly once), habit completion uniqueness/streaks/rates, CSV import report
 (rejected/duplicate rows, dry run, semicolon files, re-import of exports), CSV export
-(round-trip, formula-injection neutralised), insights, demo data removal, API token, CORS.
+(round-trip, formula-injection neutralised), insights, demo data removal, API token, CORS, sign-in
+throttling, sign-out revocation, native token rotation and revocation, password hash upgrades, row-level
+security, and query counts that don't grow with the data.
 
 ---
 
@@ -241,19 +277,28 @@ spawning (exactly once), habit completion uniqueness/streaks/rates, CSV import r
 
 ```
 frontend/  React 18 + TS + Vite + Tailwind, Radix primitives (shadcn-style), TanStack Query, Recharts
-  src/lib/           api client, types, formatting (money formatted from strings, never float math)
-  src/components/    ui primitives (Button, Field, Modal, ConfirmDialog, MetricCard, Progress, …),
-                     layout (AppShell, QuickActions: global "t"/"n" shortcuts), charts (ChartCard)
-  src/features/      overview, tasks, goals, habits, finance/*, analytics, settings
+  src/lib/           api client, types, formatting (money formatted from strings, never float math),
+                     locales (en/ru/ko), refresh areas, native session handling
+  src/components/    ui primitives (Button, Field, Modal, useConfirm, MetricCard, Progress, Segmented, …),
+                     layout (AppShell, QuickActions: global "t"/"n" shortcuts, CommandPalette), charts (ChartCard)
+  src/features/      auth, overview, tasks, goals, habits, finance/*, analytics, profile, settings
+  src/platform/      web / iOS / macOS differences (platform detection, secure storage, shortcuts)
+  src/design-lab/    the design lab (lazy-loaded, sample data only)
 
 backend/   FastAPI + SQLAlchemy 2 + Alembic + Pydantic 2 + PostgreSQL
+  app/main.py        app setup: CORS, security headers, error envelopes, routers
+  app/config.py      settings from POS_* environment variables (secrets are never printed)
   app/models.py      relational schema (constraints, indexes, timestamps)
   app/schemas/       request/response validation (money as Decimal, serialized as strings)
-  app/services/      ALL business logic — accounts, transactions, budgets, recurring,
-                     installments, analytics, insights, csv_io, tasks, goals, habits, demo
-  app/api/           thin REST routers (finance, planning, system)
+  app/services/      ALL business logic — auth, native_tokens, mail, accounts, transactions, budgets, recurring,
+                     installments, analytics, insights, csv_io, tasks, goals, habits, profile, settings, demo,
+                     error_text (RU/KO messages), i18n
+  app/api/           thin REST routers (auth, finance, planning, profile, system), deps, throttle (sign-in limits)
+  app/tenancy.py     per-account filtering of every ORM query (see Security)
+  app/rls.py         Postgres row-level security policies and grants
   alembic/           migrations
   tests/             pytest suite
+  db-init/           runs once on a fresh Docker volume: creates the restricted role
 ```
 
 The frontend never computes financial totals; every sum, balance and percentage comes from
@@ -278,7 +323,8 @@ budgets and analytics are always consistent with the ledger.
 
 ### Data model
 
-`app_settings` (singleton owner/preferences) · `accounts` · `categories` · `transactions` ·
+`users` · `profile` · `income_sources` · `native_sessions` · `revoked_web_sessions` ·
+`app_settings` (per-account preferences) · `accounts` · `categories` · `transactions` ·
 `budget_limits` · `recurring_rules` · `installment_plans` · `installment_payments` · `goals` ·
 `goal_progress_logs` · `projects` · `milestones` · `tasks` · `habits` · `habit_completions`
 (unique per habit+date) · `insight_dismissals`.
@@ -310,18 +356,20 @@ duplicate. Nothing (accounts, categories) is ever created implicitly. Exports re
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL the API uses (`postgresql+psycopg://…`); should be the restricted role |
+| `POS_DATABASE_URL` | local dev URL | SQLAlchemy URL the API uses (`postgresql+psycopg://…`); must be the restricted role |
 | `POS_MIGRATION_DATABASE_URL` | = `POS_DATABASE_URL` | Owner URL for `alembic` (tables, policies, grants) |
 | `POS_APP_DB_ROLE` | `personal_os_app` | Role that migrations grant data access to |
-| `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed origins (`*` is ignored) |
-| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / random | First account, created only if no users exist yet. Without a password a random one is written once to the API log |
-| `POS_ALLOW_REGISTRATION` | `true` | Let new people create accounts (needs working email) |
-| `POS_SMTP_HOST` / `POS_SMTP_PORT` / `POS_SMTP_USER` | `smtp.gmail.com` / `587` / `spokeesofficial@gmail.com` | Outgoing mail (STARTTLS) |
+| `POS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit allowed browser origins (`*` is ignored) |
+| `POS_NATIVE_ORIGINS` | `capacitor://localhost,tauri://localhost` | Origins of the iOS and macOS app WebViews (also never `*`) |
+| `POS_NATIVE_ACCESS_MINUTES` / `POS_NATIVE_REFRESH_DAYS` / `POS_NATIVE_SESSION_MAX_DAYS` | `15` / `60` / `180` | Native app access-token lifetime, refresh-token lifetime, and hard cap on a native session |
+| `POS_AUTH_USERNAME` / `POS_AUTH_PASSWORD` | `admin` / random | First account, created only if no users exist yet. The password must be at least 8 characters; without one, a random password is written once to the API log |
+| `POS_ALLOW_REGISTRATION` | `true` | Let new people create accounts (needs working email, or `POS_MAIL_DEV_LOG`) |
+| `POS_SMTP_HOST` / `POS_SMTP_PORT` / `POS_SMTP_USER` | `smtp.gmail.com` / `587` / — | Outgoing mail (STARTTLS). Set `POS_SMTP_USER` to your own address |
 | `POS_SMTP_PASSWORD` | empty | SMTP / Gmail App password — required to send confirmation codes |
-| `POS_MAIL_FROM` | `Personal OS <spokeesofficial@gmail.com>` | Sender shown in emails |
-| `POS_MAIL_DEV_LOG` | `false` | Development: write emails to the log instead of sending |
+| `POS_MAIL_FROM` | — | Sender shown in emails, e.g. `Personal OS <you@example.com>` |
+| `POS_MAIL_DEV_LOG` | `false` | Development: write emails (codes included) to the log instead of sending |
 | `POS_AUTH_ENABLED` | `true` | Set `false` to skip the login page — every request then acts as the first account (localhost-only) |
-| `POS_SECRET_KEY` | auto | Signs session cookies; if unset a random key is created in `backend/.secret_key` |
+| `POS_SECRET_KEY` | auto (local) | Signs session cookies. Outside Docker, a random key is created in `backend/.secret_key` on first use. **Docker: must be set**, or every restart signs everyone out |
 | `POS_SESSION_DAYS` | `30` | Session lifetime |
 | `POS_COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
 | `POS_API_TOKEN` | empty | Optional bearer token for scripts/integrations (`Authorization: Bearer <token>`) |
@@ -343,6 +391,11 @@ alembic revision --autogenerate -m "describe change"  # after editing app/models
 alembic check                                      # verify models and migrations agree
 ```
 
+Revisions, in order: `0001` initial schema · `0002` user accounts, per-user data, profile and income sources (existing
+data goes to the first account) · `0003` row-level security on every per-user table and data grants for the app role ·
+`0004` native app sessions (bearer tokens) · `0005` revoked web sessions (sign-out ends the cookie's session on the
+server) · `0006` indexes that start with the owner's id, matching how data is read. Migrations run as the owner role.
+
 ---
 
 ## Security & privacy — deployment model and limitations
@@ -352,11 +405,18 @@ alembic check                                      # verify models and migration
 - Running locally is **not** automatically secure: anyone with access to your user account, the
   database, backups or an exposed port can read the data. Data is not encrypted at rest by the app —
   use disk encryption.
-- **Accounts.** Passwords are hashed with scrypt (per-user salt). A login sets an HttpOnly, SameSite=Strict
-  cookie signed with HMAC-SHA256; changing or resetting a password signs out every other session. Unknown
-  usernames cost the same time as wrong passwords, "forgot password" never reveals whether an account exists,
-  and logins, registrations and code checks are throttled (10 per 5 minutes per client; 5 wrong codes per code;
-  one code per minute). Email codes are 6 digits, valid 15 minutes, and only their HMAC is stored.
+- **Accounts.** Passwords are hashed with scrypt (per-user salt, N=2^16, r=8, p=2), and a hash made with older
+  parameters is upgraded at the next sign-in. A login sets an HttpOnly, SameSite=Strict
+  cookie signed with HMAC-SHA256; changing or resetting a password signs out every other session, and signing out
+  ends the cookie's session on the server too. Unknown
+  usernames cost the same time as wrong passwords, and "forgot password" and "resend code" always answer the same
+  way, so they never reveal whether an account exists.
+- **Rate limits** (kept in the API process's memory, so they assume a single API worker): failed sign-ins are limited to
+  10 per client and 20 per account per 5 minutes; an address that has signed in to an account before is exempt from that
+  account's limit. Registrations, code checks, password and email changes and account deletion are limited to 10 per client per
+  5 minutes. A confirmation code gets 5 wrong guesses and can be re-sent once a minute. Email codes are 6 digits, valid 15 minutes, and only their HMAC is stored.
+- **Native apps** use short-lived access tokens and rotating refresh tokens; only their SHA-256 hashes are stored, and
+  every refresh replaces both tokens. Signing out revokes the session.
 - **Data isolation** is enforced centrally (`backend/app/tenancy.py`): every ORM read, update and delete is
   filtered to the signed-in user, new rows are stamped with that user, and a foreign key pointing at another
   user's row is rejected. With no signed-in user, queries match nothing. Tests cover cross-account access.
@@ -367,14 +427,15 @@ alembic check                                      # verify models and migration
   role; the API logs a warning at startup if it connects as a role that would bypass RLS.
 - The first account never has a known default password (see above). Before exposing the app set
   `POS_SECRET_KEY`, enable `POS_COOKIE_SECURE`, and put the app behind HTTPS (reverse proxy) or a VPN such as
-  Tailscale before exposing it beyond localhost.
+  Tailscale before exposing it beyond localhost. HSTS is set by the TLS-terminating proxy (see the example above); the app
+  itself sends `nosniff`, `DENY` framing, `no-referrer` and `no-store`.
 - `POS_API_TOKEN` (optional) is a shared secret for scripts and acts as the first account; when entered in
   Settings it is stored in localStorage.
 - Avatars are stored in the database (PNG/JPEG/WebP checked by file signature, max 2 MB, downscaled to
   512 px in the browser). Wallpaper photos never leave the browser.
 - All input is validated server-side (Pydantic + DB constraints); all SQL goes through SQLAlchemy
-  parameter binding; CORS is an explicit allow-list; responses carry `nosniff`, `DENY` framing and
-  `no-store`; request bodies and amounts are not logged; CSV exports neutralise spreadsheet formulas.
+  parameter binding; CORS is an explicit allow-list; request bodies and amounts are not logged; CSV exports neutralise spreadsheet formulas.
+- The web build's Content Security Policy only allows its own scripts, styles, images and API (no inline scripts).
 
 ---
 
