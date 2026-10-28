@@ -67,3 +67,14 @@ describe("today in the timezone from Settings, not the browser's", () => {
     expect(todayISO()).toBe("2026-10-27");
   });
 });
+
+describe("formatMoney whole amounts", () => {
+  it("rounds to whole units, half away from zero, without floats", () => {
+    expect(formatMoney("32466.67", "KZT", { decimals: "none" })).toBe(`32${T}467${T}₸`);
+    expect(formatMoney("32466.49", "KZT", { decimals: "none" })).toBe(`32${T}466${T}₸`);
+    expect(formatMoney("999.5", "KZT", { decimals: "none" })).toBe(`1${T}000${T}₸`);
+    expect(formatMoney("-0.4", "KZT", { decimals: "none" })).toBe(`0${T}₸`);
+    expect(formatMoney("-12.5", "USD", { decimals: "none" })).toBe(`−13${T}$`);
+    expect(formatMoney("99999999999999.99", "KZT", { decimals: "none" })).toBe(`100${T}000${T}000${T}000${T}000${T}₸`);
+  });
+});

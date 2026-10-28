@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { addMonths, format, parseISO } from "date-fns";
-import { AlertOctagon, AlertTriangle, ChevronLeft, ChevronRight, PiggyBank, Plus } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ChevronLeft, ChevronRight, CircleSlash, Pencil, PiggyBank, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -88,7 +88,7 @@ export function BudgetsPage() {
             </div>
             <div>
               <p className="text-xs text-ink-3">{t("Unbudgeted spending")}</p>
-              <Link to={`/finances/transactions?type=expense&start=${month}-01&end=${format(addMonths(parseISO(`${month}-01`), 1).getTime() - 86400000, "yyyy-MM-dd")}`} className="text-base tnum hover:text-accent">{formatMoney(data.unbudgeted_spent, cur)}</Link>
+              <Link to={`/finances/transactions?type=expense&start=${month}-01&end=${format(addMonths(parseISO(`${month}-01`), 1).getTime() - 86400000, "yyyy-MM-dd")}`} className="text-base tnum hover:text-accent coarse:inline-flex coarse:min-h-11 coarse:items-center">{formatMoney(data.unbudgeted_spent, cur)}</Link>
             </div>
           </Card>
           <Card className="divide-y divide-line/[0.08]">
@@ -115,11 +115,11 @@ export function BudgetsPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-3">
                     <span className="tnum">{t("{pct}% used", { pct: l.utilization ?? "—" })}</span>
                     <span className="tnum">{t("Last month: {amount}", { amount: formatMoney(l.previous_month_spent, cur) })}</span>
-                    <span className="tnum">{t("3-month avg: {amount}", { amount: l.average_3m_spent === null ? t("not enough history") : formatMoney(l.average_3m_spent, cur) })}</span>
+                    <span className="tnum">{t("3-month avg: {amount}", { amount: l.average_3m_spent === null ? t("not enough history") : formatMoney(l.average_3m_spent, cur, { decimals: "none" }) })}</span>
                     <span>{t("Limit since {month}", { month: monthLabel(l.effective_since) })}</span>
                     <span className="ml-auto flex gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => setForm({ open: true, line: l })}>{t("Edit")}</Button>
-                      <Button size="sm" variant="ghost" onClick={() => onDisable(l)}>{t("Disable")}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setForm({ open: true, line: l })}><Pencil className="h-3.5 w-3.5" />{t("Edit")}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => onDisable(l)}><CircleSlash className="h-3.5 w-3.5" />{t("Disable")}</Button>
                     </span>
                   </div>
                 </div>

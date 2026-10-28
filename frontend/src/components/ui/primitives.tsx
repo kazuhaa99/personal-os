@@ -170,8 +170,11 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium whitespace-nowrap", tones[tone], className)}>{children}</span>;
 }
 
-export function DemoBadge({ show }: { show: boolean }) {
-  return show ? <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge> : null;
+/** Marks demo rows. `dot`: a small dot for long lists, where a word on every row is noise. */
+export function DemoBadge({ show, dot }: { show: boolean; dot?: boolean }) {
+  if (!show) return null;
+  if (dot) return <span role="img" aria-label={t("demo")} title={t("demo")} className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-demo align-middle" />;
+  return <Badge tone="demo" className="ml-1.5 align-middle">{t("demo")}</Badge>;
 }
 
 export function EmptyState({ icon, title, body, action, className }: { icon?: ReactNode; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {

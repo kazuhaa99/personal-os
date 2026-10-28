@@ -6,14 +6,14 @@ import { useSearchParams } from "react-router-dom";
 import { api, errorMessage } from "@/lib/api";
 import { fmtDate, formatMoney, todayISO, nowInAppZone } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { useAccounts, useAction, useCategories } from "@/lib/queries";
+import { useAccounts, useCategories } from "@/lib/queries";
 import type { Transaction, TxPage } from "@/lib/types";
-import { useConfirm } from "@/components/ui/dialog";
 import { Badge, Button, Card, cn, DemoBadge, EmptyState, ErrorBlock, Input, LoadingBlock, Select } from "@/components/ui/primitives";
 import { useQuickActions } from "@/components/layout/QuickActions";
 import { toast } from "sonner";
 import { ImportDialog } from "./ImportDialog";
 import { dateParam, idParam, offsetParam, oneOf } from "@/lib/urlParams";
+import { useDeleteTransaction } from "./useDeleteTransaction";
 
 const TX_TYPES = ["", "income", "expense", "transfer"] as const;
 
@@ -38,7 +38,6 @@ export function TransactionsPage() {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const qa = useQuickActions();
-  const confirm = useConfirm();
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState(params.get("q") ?? "");
 
@@ -67,11 +66,7 @@ export function TransactionsPage() {
     queryFn: () => api.get<TxPage>("/transactions", { ...filter, limit: PAGE, offset }),
   });
 
-  const del = useAction((id: number) => api.del(`/transactions/${id}`), { refresh: ["finance"], success: t("Transaction deleted") });
-
-  async function onDelete(tx: Transaction) {
-    if (await confirm({ title: t("Delete transaction?"), body: t("{amount} · {what} on {date}. Account balances will be recalculated.", { amount: formatMoney(tx.amount, tx.currency), what: tx.description || (tx.category ? t(tx.category.name) : t("transfer")), date: fmtDate(tx.date) }) })) del.mutate(tx.id);
-  }
+  const onDelete = useDeleteTransaction();
 
   async function onExport() {
     try {
@@ -95,9 +90,11 @@ export function TransactionsPage() {
           {PRESETS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
           <option value="custom" disabled>{t("Custom range")}</option>
         </Select>
-        <Input type="date" aria-label={t("From date")} className="w-[9.5rem]" value={filter.start} onChange={(e) => set({ start: e.target.value })} />
-        <span className="text-ink-3 text-sm">–</span>
-        <Input type="date" aria-label={t("To date")} className="w-[9.5rem]" value={filter.end} onChange={(e) => set({ end: e.target.value })} />
+        {/* Visible captions: the date field's own placeholder follows the device's language, not the app's. */}
+        <label className="flex items-center gap-1.5 text-xs text-ink-2 max-sm:flex-1">{t("From")}
+          <Input type="date" aria-label={t("From date")} className="w-full sm:w-[9.5rem]" value={filter.start} onChange={(e) => set({ start: e.target.value })} /></label>
+        <label className="flex items-center gap-1.5 text-xs text-ink-2 max-sm:flex-1">{t("To")}
+          <Input type="date" aria-label={t("To date")} className="w-full sm:w-[9.5rem]" value={filter.end} onChange={(e) => set({ end: e.target.value })} /></label>
         <Select aria-label={t("Account")} className="w-auto max-w-[12rem]" value={filter.account_id} onChange={(e) => set({ account_id: e.target.value })}>
           <option value="">{t("All accounts")}</option>
           {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.is_archived ? ` (${t("archived")})` : ""}</option>)}
@@ -149,21 +146,25 @@ export function TransactionsPage() {
                   <th className="text-left font-normal px-3 py-2 hidden md:table-cell">{t("Category")}</th>
                   <th className="text-left font-normal px-3 py-2 hidden sm:table-cell">{t("Account")}</th>
                   <th className="text-right font-normal px-3 py-2">{t("Amount")}</th>
-                  <th className="w-16" />
+                  {/* Phones: edit and delete open from the row (the dialog has Delete), keeping the amount on screen. */}
+                  <th className="w-16 hidden sm:table-cell" />
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((tx) => (
                   <tr key={tx.id} className="group border-b hairline last:border-0 hover:bg-fill/[0.02]">
                     <td className="px-3 py-2 text-ink-2 tnum whitespace-nowrap">{fmtDate(tx.date, "d MMM yy")}</td>
-                    <td className="px-3 py-2 max-w-[22rem]">
-                      <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? t("Transfer") : tx.category ? t(tx.category.name) : "")}<DemoBadge show={tx.is_demo} /></p>
+                    <td className="px-3 py-2 max-w-[38vw] sm:max-w-[22rem]">
+                      {/* The description opens the transaction: a large target, also on a phone. */}
+                      <button type="button" className="block max-w-full text-left coarse:min-h-11" onClick={() => qa.editTransaction(tx)}>
+                      <p className="truncate">{tx.description || tx.payee || (tx.type === "transfer" ? t("Transfer") : tx.category ? t(tx.category.name) : "")}<DemoBadge show={tx.is_demo} dot /></p>
                       <p className="text-xs text-ink-3 truncate">
                         {tx.payee && tx.description ? tx.payee : ""}
                         {tx.tags.map((tag) => <span key={tag} className="mr-1.5">#{tag}</span>)}
                         {tx.recurring_rule_id && <Badge className="mr-1">{t("recurring")}</Badge>}
                         {tx.installment_payment_id && <Badge className="mr-1">{t("installment")}</Badge>}
                       </p>
+                      </button>
                     </td>
                     <td className="px-3 py-2 hidden md:table-cell">
                       {tx.type === "transfer" ? <span className="inline-flex items-center gap-1 text-ink-3 text-xs"><ArrowLeftRight className="h-3.5 w-3.5" /> {t("Transfer")}</span> : (
@@ -172,9 +173,9 @@ export function TransactionsPage() {
                     </td>
                     <td className="px-3 py-2 hidden sm:table-cell text-ink-2 whitespace-nowrap">{tx.account.name}{tx.to_account && <span className="text-ink-3"> → {tx.to_account.name}</span>}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap"><Amount tx={tx} /></td>
-                    <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                      <Button variant="ghost" size="icon" aria-label={t("Edit")} className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => qa.editTransaction(tx)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" aria-label={t("Delete")} className="h-7 w-7 opacity-60 group-hover:opacity-100" onClick={() => onDelete(tx)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <td className="px-2 py-2.5 text-right whitespace-nowrap hidden sm:table-cell">
+                      <Button variant="ghost" size="icon" aria-label={t("Edit")} className="coarse:hidden" onClick={() => qa.editTransaction(tx)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" aria-label={t("Delete")} onClick={() => onDelete(tx)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </td>
                   </tr>
                 ))}

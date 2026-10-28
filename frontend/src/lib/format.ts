@@ -5,12 +5,27 @@ const THIN = " ";
 const SYMBOLS: Record<string, string> = { KZT: "₸", USD: "$", EUR: "€", RUB: "₽" };
 
 /** Format a decimal string without going through float. "-1234567.5" -> "−1 234 567.50 ₸" */
-export function formatMoney(value: string | null | undefined, currency = "KZT", opts: { sign?: boolean; decimals?: "auto" | "always" } = {}): string {
+/** "123" + 1 as a decimal string, for amounts beyond Number's exact range. */
+function incrementDigits(digits: string): string {
+  const out = digits.split("");
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i] !== "9") { out[i] = String(Number(out[i]) + 1); return out.join(""); }
+    out[i] = "0";
+  }
+  return `1${out.join("")}`;
+}
+
+/** decimals: "auto" hides zero cents, "always" shows them, "none" rounds to whole units (half away from zero). */
+export function formatMoney(value: string | null | undefined, currency = "KZT", opts: { sign?: boolean; decimals?: "auto" | "always" | "none" } = {}): string {
   if (value === null || value === undefined || value === "") return "—";
   let s = String(value).trim();
   const negative = s.startsWith("-");
   if (negative || s.startsWith("+")) s = s.slice(1);
-  const [intPartRaw, fracRaw = ""] = s.split(".");
+  let [intPartRaw, fracRaw = ""] = s.split(".");
+  if (opts.decimals === "none") {
+    if (Number(fracRaw[0] ?? 0) >= 5) intPartRaw = incrementDigits(intPartRaw || "0");
+    fracRaw = "";
+  }
   const intPart = (intPartRaw.replace(/^0+(?=\d)/, "") || "0").replace(/\B(?=(\d{3})+(?!\d))/g, THIN);
   const frac = (fracRaw + "00").slice(0, 2);
   const showFrac = opts.decimals === "always" || frac !== "00";

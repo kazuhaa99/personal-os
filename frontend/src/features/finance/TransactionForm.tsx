@@ -6,6 +6,7 @@ import { useAccounts, useAction, useCategories } from "@/lib/queries";
 import type { Transaction, TxType } from "@/lib/types";
 import { Modal } from "@/components/ui/dialog";
 import { Button, Field, Input, Segmented, Select } from "@/components/ui/primitives";
+import { useDeleteTransaction } from "./useDeleteTransaction";
 
 const LAST_ACCOUNT = "pos.lastAccount";
 
@@ -68,6 +69,7 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
   const source = accounts.find((a) => String(a.id) === accountId);
   const linkedToInstallment = !!editing?.installment_payment_id;
 
+  const remove = useDeleteTransaction(() => onOpenChange(false));
   const save = useAction(
     (body: Record<string, unknown>) => (editing ? api.patch(`/transactions/${editing.id}`, body) : api.post("/transactions", body)),
     { refresh: ["finance"], success: editing ? t("Transaction updated") : t("Transaction added"), onSuccess: () => onOpenChange(false), haptic: "success" },
@@ -110,7 +112,10 @@ export function TransactionForm({ open, onOpenChange, editing, draft }: { open: 
       title={editing ? t("Edit transaction") : t("New transaction")}
       description={type === "transfer" ? t("Transfers move money between your accounts and never count as income or expense.") : undefined}
       onSubmit={submit}
-      footer={<><Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? t("Save") : t("Add")}</Button></>}
+      footer={<>
+        {editing && <Button variant="ghost" className="mr-auto text-bad" onClick={() => void remove(editing)}>{t("Delete")}</Button>}
+        <Button onClick={() => onOpenChange(false)}>{t("Cancel")}</Button><Button type="submit" variant="primary" loading={save.isPending}>{editing ? t("Save") : t("Add")}</Button>
+      </>}
     >
       {accounts.length === 0 ? (
         <p className="text-sm text-ink-2">{t("Create an account first (Finances → Accounts).")}</p>
