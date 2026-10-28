@@ -87,7 +87,9 @@ function SalaryCard({ profile }: { profile: Profile }) {
               onChange={(e) => setF((s) => ({ ...s, payday: e.target.value }))} />
           )}</Field>
         </div>
-        <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>{t("Save")}</Button>
+        {dirty || save.isPending
+          ? <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>
+          : <span className="text-xs text-ink-2">{t("No unsaved changes")}</span>}
       </form>
     </Card>
   );

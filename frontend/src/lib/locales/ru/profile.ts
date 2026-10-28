@@ -134,4 +134,5 @@ export const profile: Dict = {
   "Delete forever": "Удалить навсегда",
   "Your account was deleted": "Аккаунт удалён",
   "This is the only account, so it can't be deleted.": "Это единственный аккаунт, его нельзя удалить.",
+  "No unsaved changes": "Нет несохранённых изменений",
 };

@@ -66,7 +66,10 @@ export function PersonalCard({ profile }: { profile: Profile }) {
           <span className={cn("tnum", f.bio.length > BIO_MAX * 0.9 && "text-warn")}>{f.bio.length} / {BIO_MAX}</span>
         }>{(id) => <Textarea id={id} rows={4} value={f.bio} maxLength={BIO_MAX} placeholder={t("A few words about yourself")} onChange={set("bio")} className="resize-y" />}</Field>
         <div className="flex items-center gap-3 pt-1">
-          <Button type="submit" variant="primary" disabled={!changed.length} loading={save.isPending}>{t("Save")}</Button>
+          {/* No greyed-out button: say why there is nothing to do instead. */}
+          {changed.length > 0 || save.isPending
+            ? <Button type="submit" variant="primary" loading={save.isPending}>{t("Save")}</Button>
+            : <span className="text-xs text-ink-2">{t("No unsaved changes")}</span>}
           {changed.length > 0 && !save.isPending && (
             <Button variant="ghost" onClick={() => setF(initial)}>{t("Reset")}</Button>
           )}

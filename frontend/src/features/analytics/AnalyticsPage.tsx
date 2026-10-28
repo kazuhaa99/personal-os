@@ -10,6 +10,7 @@ import { compactMoney, fmtDate, formatMoney, monthLabel, nowInAppZone } from "@/
 import type { AnalyticsSummary, ExpectedPayment } from "@/lib/types";
 import { AXIS, axisProps, ChartCard, ChartTooltip, GRID, NEG, SERIES } from "@/components/charts/ChartCard";
 import { Card, CardHeader, EmptyState, ErrorBlock, Input, LoadingBlock, MetricCard, MoneyText, Segmented, Select, cn } from "@/components/ui/primitives";
+import { trimLeadingEmpty } from "@/lib/series";
 
 const M = "yyyy-MM";
 type Preset = "3m" | "6m" | "12m" | "ytd" | "custom";
@@ -64,15 +65,17 @@ export function AnalyticsPage() {
   const noData = cf.months_with_data === 0;
   const emptyChart = <EmptyState className="py-10" icon={<BarChart3 className="h-5 w-5" />} title={t("No transactions in this period")} body={<>{t("Record income and expenses, or")} <Link className="text-accent" to="/finances/transactions">{t("import a CSV")}</Link>.</>} />;
 
-  const flowRows = cf.months.map((m) => ({ month: m.month, income: num(m.income), expense: num(m.expense), net: num(m.net_cash_flow) }));
+  // Charts start at the first month with records: earlier months aren't zeros, just nothing yet.
+  const flowRows = trimLeadingEmpty(cf.months.map((m) => ({ month: m.month, income: num(m.income), expense: num(m.expense), net: num(m.net_cash_flow) })), ["income", "expense"]);
+  const firstMonth = flowRows[0]?.month ?? "9999-12";
   const trendSeries = data.trend.series;
-  const trendRows = data.trend.months.map((m) => {
+  const trendRows = data.trend.months.filter((m) => m.month >= firstMonth).map((m) => {
     const total = cf.months.find((x) => x.month === m.month)?.expense;
     return { month: m.month as string, value: trendKey === "total" ? num(total) : num(m[trendKey]) };
   });
   const trendSeriesName = trendSeries.find((s) => s.key === trendKey)?.name;
   const trendName = trendKey === "total" ? t("All expenses") : trendSeriesName ? t(trendSeriesName) : "";
-  const balRows = data.balances.points.map((p) => ({ month: p.month, total: num(p.total_balance), savings: num(p.savings_balance) }));
+  const balRows = trimLeadingEmpty(data.balances.points.map((p) => ({ month: p.month, total: num(p.total_balance), savings: num(p.savings_balance) })), ["total", "savings"]);
   const hasSavings = data.balances.points.some((p) => num(p.savings_balance) !== 0);
   const budgetRows = data.budget_performance.months.filter((m) => m.limit !== null).map((m) => ({ month: m.month, spent: num(m.spent), limit: num(m.limit), over: m.over_count }));
   const installments = expected.filter((e) => e.kind === "installment");
