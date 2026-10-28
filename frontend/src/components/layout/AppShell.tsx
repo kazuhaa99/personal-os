@@ -14,7 +14,7 @@ import { format, LANGUAGES, t, useLang } from "@/lib/i18n";
 import { useAccounts, useSettings } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
 import type { Dashboard, Profile } from "@/lib/types";
-import { Button, cn, Spinner } from "@/components/ui/primitives";
+import { Button, cn, menuContent, menuItem, Spinner } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthGate";
 import { CommandPalette } from "./CommandPalette";
 import { useQuickActions } from "./QuickActions";
@@ -171,8 +171,6 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
 
 // ---------------------------------------------------------------- toolbar menus
 
-const menuContent = "mat-popover z-50 min-w-[220px] rounded-xl p-1 text-[13.5px] data-[state=open]:animate-[dlg-fade_0.14s_ease-out]";
-const menuItem = "flex items-center gap-2.5 h-8 px-2.5 rounded-[7px] outline-none cursor-default select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-ink";
 
 function ThemeMenu() {
   const { mode, setMode, resolved } = useTheme();

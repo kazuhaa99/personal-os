@@ -13,6 +13,15 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 }
 
+// Screens with data (lists, rows, habit cells), not just empty states.
+test.beforeAll(async ({ browser }) => {
+  const page = await browser.newPage();
+  await signIn(page);
+  const demo = await page.request.get("./api/demo");
+  if (!(await demo.json()).loaded) expect((await page.request.post("./api/demo")).ok()).toBe(true);
+  await page.close();
+});
+
 async function settle(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(500);
@@ -148,7 +157,7 @@ test.describe("with reduced motion", () => {
     const moving: string[] = [];
     for (const [link, tab] of [["Tasks", "Upcoming"], ["Analytics", "12 months"]]) {
       const watching = watch();
-      await page.getByRole("link", { name: link, exact: true }).first().click();
+      await page.getByRole("link", { name: new RegExp(`^${link}`) }).first().click(); // the name may end with a count
       moving.push(...(await watching).map((m) => `${link}: ${m}`));
       await settle(page);
       const again = watch();

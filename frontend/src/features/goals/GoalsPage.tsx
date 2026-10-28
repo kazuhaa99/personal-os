@@ -131,7 +131,7 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
   return (
     <div className="space-y-5">
       <Card className="overflow-hidden">
-        <div className="relative h-40 sm:h-48">
+        <div className="relative h-32 sm:h-36">
           <img src={goalArt(goal.category)} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
           <span className="absolute left-5 bottom-3 rounded-full bg-black/35 backdrop-blur-md px-2.5 py-1 text-xs font-medium text-white">{category(goal.category)}</span>
@@ -139,7 +139,8 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
         <div className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-ink-3">{category(goal.category)}{goal.target_date && ` · ${t("target {date}", { date: fmtDate(goal.target_date) })}`}</p>
+            {/* The category is on the photo above; here only the date. */}
+            {goal.target_date && <p className="text-xs text-ink-3 first-letter:uppercase">{t("target {date}", { date: fmtDate(goal.target_date) })}</p>}
             <h2 className="text-lg font-semibold mt-1">{goal.title}<DemoBadge show={goal.is_demo} /></h2>
             {goal.description && <p className="text-sm text-ink-2 mt-1.5 max-w-prose">{goal.description}</p>}
           </div>
@@ -147,16 +148,18 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
             <Button size="sm" variant="ghost" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /> {t("Edit")}</Button>
             {goal.status !== "completed" && <Button size="sm" variant="ghost" onClick={() => patch.mutate({ status: "completed" })}><Check className="h-3.5 w-3.5" /> {t("Complete")}</Button>}
             <Button size="sm" variant="ghost" onClick={() => patch.mutate({ archived: !goal.archived })}><Archive className="h-3.5 w-3.5" /> {goal.archived ? t("Unarchive") : t("Archive")}</Button>
-            <Button size="sm" variant="ghost" aria-label={t("Delete goal")} onClick={async () => { if (await confirm({ title: t("Delete “{title}”?", { title: goal.title }), body: t("Milestones are deleted. Linked tasks and projects are kept but unlinked.") })) del.mutate(undefined); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" aria-label={t("Delete goal")} onClick={async () => { if (await confirm({ title: t("Delete “{title}”?", { title: goal.title }), body: t("Milestones are deleted. Linked tasks and projects are kept but unlinked.") })) del.mutate(undefined); }}><Trash2 className="h-3.5 w-3.5" /></Button>
           </div>
         </div>
         <div className="mt-5 flex items-end gap-6">
           <div className="flex-1">
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-3xl font-semibold tnum">{goal.progress}%</span>
+              <span className="text-3xl font-semibold tnum">{goal.progress_mode === "manual" ? progress : goal.progress}%</span>
               <span className="text-xs text-ink-3">{goal.status !== "active" ? <Badge>{status(goal.status)}</Badge> : goal.overdue ? <span className="text-bad">{t("past target date")}</span> : goal.days_left !== null ? tp("{n} days left", goal.days_left) : ""}</span>
             </div>
-            <Progress value={goal.progress} tone={goal.status === "completed" ? "good" : goal.overdue ? "warn" : "accent"} label={t("Goal progress")} />
+            {goal.progress_mode === "manual" ? (
+              <input type="range" min={0} max={100} step={5} value={progress} onChange={(e) => setProgress(e.target.value)} className="w-full accent-[rgb(var(--accent))] coarse:h-11" aria-label={t("Progress")} />
+            ) : <Progress value={goal.progress} tone={goal.status === "completed" ? "good" : goal.overdue ? "warn" : "accent"} label={t("Goal progress")} />}
           </div>
           {goal.history.length >= 2 && (
             <div className="w-40 h-12 hidden sm:block" aria-label={t("Progress history")}>
@@ -170,19 +173,18 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
             </div>
           )}
         </div>
-        {goal.progress_mode === "manual" && (
-          <form className="mt-4 flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); patch.mutate({ manual_progress: Math.max(0, Math.min(100, Number(progress) || 0)) }); }}>
-            <input type="range" min={0} max={100} step={5} value={progress} onChange={(e) => setProgress(e.target.value)} className="flex-1 accent-[rgb(var(--accent))]" aria-label={t("Progress")} />
-            <span className="w-10 text-right text-sm tnum">{progress}%</span>
-            <Button size="sm" type="submit" disabled={Number(progress) === goal.manual_progress}>Update</Button>
-          </form>
+        {goal.progress_mode === "manual" && Number(progress) !== goal.manual_progress && (
+          <div className="mt-3 flex items-center gap-2">
+            <Button size="sm" variant="primary" onClick={() => patch.mutate({ manual_progress: Math.max(0, Math.min(100, Number(progress) || 0)) })}>{t("Save progress")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setProgress(String(goal.manual_progress))}>{t("Cancel")}</Button>
+          </div>
         )}
         {goal.progress_mode === "target" && (
           <form className="mt-4 flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (/^\d+(\.\d{1,2})?$/.test(value)) patch.mutate({ current_value: value }); }}>
             <span className="text-sm text-ink-2">{t("Current")}</span>
             <Input className="w-36 tnum" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} aria-label={t("Current value")} />
             <span className="text-sm text-ink-3">{t("of {target} {unit}", { target: goal.target_value ?? "", unit: goal.unit ?? "" })}</span>
-            <Button size="sm" type="submit" disabled={value === goal.current_value}>Update</Button>
+            {value !== goal.current_value && <Button size="sm" variant="primary" type="submit">{t("Save")}</Button>}
           </form>
         )}
         {goal.last_progress_at && <p className="mt-3 text-2xs text-ink-3">{t("Last progress change {date}", { date: fmtDate(goal.last_progress_at.slice(0, 10)) })}</p>}
@@ -194,9 +196,9 @@ function GoalDetail({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
           <CardHeader title={t("Milestones")} subtitle={goal.progress_mode === "milestones" ? t("Progress is calculated from these") : t("Optional checkpoints")} />
           <ul className="px-2">
             {goal.milestones.map((m) => (
-              <li key={m.id} className="group flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-fill/[0.03]">
+              <li key={m.id} className="group flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-fill/[0.03] coarse:min-h-11">
                 <button type="button" aria-label={m.completed_at ? t("Mark incomplete") : t("Mark complete")} onClick={() => toggleMs.mutate({ id: m.id, completed: !m.completed_at })}
-                  className={cn("h-[18px] w-[18px] rounded-full border grid place-items-center", m.completed_at ? "bg-accent border-accent text-accent-ink" : "border-ink-3/50 hover:border-accent")}>
+                  className={cn("tap-target h-[18px] w-[18px] rounded-full border grid place-items-center", m.completed_at ? "bg-accent border-accent text-accent-ink" : "border-ink-3/50 hover:border-accent")}>
                   {m.completed_at && <Check className="h-3 w-3" strokeWidth={3} />}
                 </button>
                 <span className={cn("flex-1 text-sm", m.completed_at && "line-through text-ink-3")}>{m.title}</span>
